@@ -258,6 +258,7 @@ func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 				// ESC/cancel -> back to results list
 				continue
 			}
+			checkYTdlpVersion()
 			if choice == "Download" {
 				qualities := []string{"1080p", "720p", "480p", "360p", "Audio"}
 				actionQ := exec.CommandContext(ctx, "fzf", "--prompt=Quality: ")
@@ -415,7 +416,7 @@ func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 				if player == nil {
 					fmt.Println("    " + colorRed + "No media player found!" + colorReset)
 					fmt.Println("    " + colorWhite + "Please install MPV to play audio." + colorReset)
-					fmt.Println("    " + colorYellow + "Install MPV: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)" + colorReset)
+					fmt.Println("    " + colorYellow + "Install MPV: sudo apt install mpv (Ubuntu) | brew install mpv (macOS) | sudo pacman -S mpv (arch)" + colorReset)
 					fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
 					os.Stdin.Read(make([]byte, 1))
 					continue // Go back to the search results
@@ -435,7 +436,7 @@ func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 				streamURLBytes, err := audioCmd.Output()
 				if err != nil {
 					fmt.Println("    " + colorRed + "Failed to get direct audio URL." + colorReset)
-					fmt.Println("    " + colorWhite + "Make sure yt-dlp is installed." + colorReset)
+					fmt.Println("    " + colorWhite + "Make sure yt-dlp is installed and the latest one." + colorReset)
 					fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
 					os.Stdin.Read(make([]byte, 1))
 					continue // Go back to the search results
@@ -460,12 +461,11 @@ func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 				if player == nil {
 					fmt.Println("    " + colorRed + "No media player (mpv) found!" + colorReset)
 					fmt.Println("    " + colorWhite + "Please install mpv to play videos." + colorReset)
-					fmt.Println("    " + colorYellow + "Install mpv: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)" + colorReset)
+					fmt.Println("    " + colorYellow + "Install mpv: sudo apt install mpv (Ubuntu) | brew install mpv (macOS) | sudo pacman -S mpv (arch)" + colorReset)
 					fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
 					os.Stdin.Read(make([]byte, 1))
 					continue // Go back to the search results
 				}
-				fmt.Printf("    %sPlayer check: mpv found at %s%s\n", colorGreen, player.Path, colorReset)
 				fmt.Printf("    %sPlaying: %s%s\n", colorYellow, videos[selected].Title, colorReset)
 			}
 			fmt.Printf("    %sChannel: %s%s\n", colorWhite, videos[selected].Author, colorReset)
@@ -524,13 +524,11 @@ func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 					fmt.Println("    " + colorYellow + "Continuing playback attempt in 3 seconds..." + colorReset)
 					time.Sleep(3 * time.Second)
 				}
-				fmt.Println("    " + colorCyan + "Log: User selected in-terminal playback." + colorReset)
 				mpvArgs = append(mpvArgs, "--vo=tct")       //  tct for terminal compatibility
 				mpvArgs = append(mpvArgs, "--really-quiet") // Suppress initial logs
 				mpvArgs = append(mpvArgs, "--loop=no")      // Ensure it doesn't loop
 				fmt.Println("    " + colorYellow + "Controls: 'q' to quit, SPACE to pause/resume, ←→ to seek" + colorReset)
 			} else { // Play in MPV (External)
-				fmt.Println("    " + colorCyan + "Log: User selected external mpv playback." + colorReset)
 				mpvArgs = append(mpvArgs, "--fs") // Fullscreen for external MPV
 				mpvArgs = append(mpvArgs, "--really-quiet")
 			}
@@ -544,11 +542,6 @@ func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 			}
 
 			mpvArgs = append(mpvArgs, videos[selected].URL)
-
-			fmt.Printf("    %sLog: Preparing to play video: %s%s\n", colorCyan, videos[selected].Title, colorReset)
-			fmt.Printf("    %sLog: Video URL: %s%s\n", colorCyan, videos[selected].URL, colorReset)
-			fmt.Printf("    %sLog: Constructing mpv command with arguments: %v%s\n", colorCyan, mpvArgs, colorReset)
-
 			mpvCmd := exec.CommandContext(ctx, mpvPath, mpvArgs...)
 			mpvCmd.Stdin = os.Stdin // Ensure mpv receives input for 'q'
 			mpvCmd.Stdout = os.Stdout
@@ -560,12 +553,12 @@ func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 					fmt.Println("    " + colorYellow + "In-terminal video playback often has compatibility issues." + colorReset)
 					fmt.Println("    " + colorYellow + "Try selecting 'm' for external mpv playback instead." + colorReset)
 				} else {
-					fmt.Println("    " + colorYellow + "Ensure mpv is installed, in your PATH, and yt-dlp is providing a valid video URL." + colorReset)
+					fmt.Println("    " + colorYellow + "Ensure mpv is installed, in your PATH, and yt-dlp is the lastest one." + colorReset)
 				}
 				fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
 				os.Stdin.Read(make([]byte, 1))
 			} else {
-				fmt.Println("    " + colorGreen + "Log: Playback command executed successfully." + colorReset)
+				fmt.Println("    " + colorGreen + "Playback command executed successfully." + colorReset)
 			}
 			continue
 		}
@@ -610,7 +603,6 @@ func gophertubeDownloadsMode(ctx context.Context, cmd *cli.Command) {
 		os.Stdin.Read(make([]byte, 1))
 		return // Go back from downloads mode
 	}
-	fmt.Printf("    %sPlayer check: mpv found at %s%s\n", colorGreen, player.Path, colorReset)
 
 	fmt.Printf("    %sPlaying: %s%s\n", colorYellow, selected, colorReset)
 	fmt.Println()
@@ -661,25 +653,18 @@ func gophertubeDownloadsMode(ctx context.Context, cmd *cli.Command) {
 		compat := checkTerminalCompatibility()
 		if !compat.HasSixel && !compat.HasCaca {
 			fmt.Println("    " + colorYellow + "Warning: In-terminal video playback may not be supported." + colorReset)
-			fmt.Println("    " + colorYellow + "For best results, please install 'libsixel-bin' or 'caca-utils'." + colorReset)
 			fmt.Println("    " + colorYellow + "Continuing playback attempt in 3 seconds..." + colorReset)
 			time.Sleep(3 * time.Second)
 		}
-		fmt.Println("    " + colorCyan + "Log: User selected in-terminal playback." + colorReset)
 		mpvArgs = append(mpvArgs, "--vo=tct")       // tct for terminal video compatibility
 		mpvArgs = append(mpvArgs, "--really-quiet") // Suppress initial logs
 		mpvArgs = append(mpvArgs, "--loop=no")      // Ensure it doesn't loop
 	} else { // Play in MPV (External)
-		fmt.Println("    " + colorCyan + "Log: User selected external mpv playback." + colorReset)
 		mpvArgs = append(mpvArgs, "--fs") // Fullscreen for external MPV
 		mpvArgs = append(mpvArgs, "--really-quiet")
 	}
 
 	mpvArgs = append(mpvArgs, filePath)
-
-	fmt.Printf("    %sLog: Preparing to play video file: %s%s\n", colorCyan, filePath, colorReset)
-	fmt.Printf("    %sLog: Constructing mpv command with arguments: %v%s\n", colorCyan, mpvArgs, colorReset)
-
 	mpvCmd := exec.CommandContext(ctx, mpvPath, mpvArgs...)
 	mpvCmd.Stdin = os.Stdin // Ensure mpv receives input for 'q'
 	mpvCmd.Stdout = os.Stdout
@@ -696,7 +681,7 @@ func gophertubeDownloadsMode(ctx context.Context, cmd *cli.Command) {
 		fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
 		os.Stdin.Read(make([]byte, 1))
 	} else {
-		fmt.Println("    " + colorGreen + "Log: Playback command executed successfully." + colorReset)
+		fmt.Println("    " + colorGreen + "Playback command executed successfully." + colorReset)
 	}
 }
 

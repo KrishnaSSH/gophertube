@@ -3,10 +3,12 @@ package app
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"gophertube/internal/services"
 	"gophertube/internal/types"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -278,5 +280,44 @@ func checkTerminalCompatibility() TerminalCompatibility {
 	return TerminalCompatibility{
 		HasSixel: sixelErr == nil,
 		HasCaca:  cacaErr == nil,
+	}
+}
+
+func checkYTdlpVersion() {
+	// Get current version
+	cmd := exec.Command("yt-dlp", "--version")
+	output, err := cmd.Output()
+	if err != nil {
+		// yt-dlp not found, do nothing
+		return
+	}
+	currentVersion := strings.TrimSpace(string(output))
+
+	// Get latest version from github
+	resp, err := http.Get("https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest")
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	var release struct {
+		TagName string `json:"tag_name"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
+		return
+	}
+	latestVersion := release.TagName
+
+	if currentVersion != latestVersion {
+		fmt.Printf("\n    %sWarning: Your yt-dlp version (%s) is outdated. Latest is %s.%s\n", colorYellow, currentVersion, latestVersion, colorReset)
+		fmt.Printf("    %sSome of features might not works properly%s\n", colorRed, colorReset)
+		fmt.Printf("    %sPlease update yt-dlp by running: yt-dlp -U or your package manager%s\n\n", colorCyan, colorReset)
+	}
+
+	// Check for terminal compatibility
+	compat := checkTerminalCompatibility()
+	if !compat.HasSixel && !compat.HasCaca {
+		fmt.Printf("\n    %sWarning: In-terminal video playback may not be supported.%s\n", colorYellow, colorReset)
+		fmt.Printf("    %sFor best results, please install 'libsixel-bin' or 'caca-utils'.%s\n\n", colorCyan, colorReset)
 	}
 }
