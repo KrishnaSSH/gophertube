@@ -2,6 +2,7 @@ package app
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"gophertube/internal/services"
 	"gophertube/internal/types"
@@ -31,7 +32,7 @@ func buildSearchHeader(resultCount int, query string) string {
 // It renders the thumbnail via chafa, pads to place the cursor below the image,
 // then prints colored metadata.
 func buildSearchPreview() string {
-	tpl := `sh -c 'thumbfile="$1"; title="$2"; w=$((FZF_PREVIEW_COLUMNS * %d / %d)); h=$((FZF_PREVIEW_LINES * %d / %d)); if [ -s "$thumbfile" ] && [ -f "$thumbfile" ]; then chafa --size=${w}x${h} "$thumbfile" 2>/dev/null; else echo "No image preview available"; fi; pad=$((FZF_PREVIEW_LINES - h - 1)); i=0; while [ $i -gt -1 ] && [ $i -lt $pad ]; do echo; i=$((i+1)); done; printf "%s%%s%s\n" "$title"; printf "%sDuration:%s %%s\n" "$3"; printf "%sPublished:%s %%s\n" "$4"; printf "%sAuthor:%s %%s\n" "$5"; printf "%sViews:%s %%s\n" "$6"' sh {3} {2} {4} {8} {5} {6}`
+	tpl := `sh -c 'thumbfile="$1"; title="$2"; w=$(expr $FZF_PREVIEW_COLUMNS \* %d / %d); h=$(expr $FZF_PREVIEW_LINES \* %d / %d); if [ -s "$thumbfile" ] && [ -f "$thumbfile" ]; then chafa --size=${w}x${h} "$thumbfile" 2>/dev/null; else echo "No image preview available"; fi; pad=$(expr $FZF_PREVIEW_LINES - $h - 1); i=0; while [ $i -gt -1 ] && [ $i -lt $pad ]; do echo; i=$((i+1)); done; printf "%s%%s%s\n" "$title"; printf "%sDuration:%s %%s\n" "$3"; printf "%sPublished:%s %%s\n" "$4"; printf "%sAuthor:%s %%s\n" "$5"; printf "%sViews:%s %%s\n" "$6"' sh {3} {2} {4} {8} {5} {6}`
 	return fmt.Sprintf(
 		tpl,
 		previewWidthNum, previewWidthDen,
@@ -197,7 +198,7 @@ func readQuery() (string, bool) {
 	return string(query), false
 }
 
-func runFzf(videos []types.Video, searchLimit int, query string) int {
+func runFzf(ctx context.Context, videos []types.Video, searchLimit int, query string) int {
 	limit := searchLimit
 	filter := ""
 	for {
@@ -223,7 +224,7 @@ func runFzf(videos []types.Video, searchLimit int, query string) int {
 		if filter != "" {
 			fzfArgs = append(fzfArgs, "--query="+filter)
 		}
-		cmd := exec.Command("fzf", fzfArgs...)
+		cmd := exec.CommandContext(ctx, "fzf", fzfArgs...)
 		cmd.Stdin = &input
 		pr, pw, _ := os.Pipe()
 		cmd.Stdout = pw

@@ -34,18 +34,38 @@ func New() cli.Command {
 
 // Action is the equivalent of the main except that all flags/configs
 // have already been parsed and sanitized.
-func Action(ctx context.Context, cmd *cli.Command) error {
-	// Handle Ctrl+C gracefully
+func Action(cliCtx context.Context, cmd *cli.Command) error {
+	// Create a cancellable context for the application's lifecycle
+	appCtx, cancel := context.WithCancel(cliCtx)
+	defer cancel() // Ensure cancel is called if function exits normally
+
+	// Handle Ctrl+C gracefully by canceling the context
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigChan
+		// Newline for clean display after ^C
 		fmt.Println()
-		fmt.Println("\033[1;33mExiting...\033[0m")
-		os.Exit(0)
+		// Only print a message if the appCtx hasn't been cancelled yet
+		select {
+		case <-appCtx.Done():
+			// Context already cancelled, likely exiting. Do nothing further.
+		default:
+			fmt.Println("\033[1;33mReturning to previous menu... (Press Ctrl+C again to exit)\033[0m")
+			cancel() // Cancel the context to signal return/exit
+		}
 	}()
 
 	for {
+		// Check if context was cancelled (e.g., by Ctrl+C)
+		select {
+		case <-appCtx.Done():
+			fmt.Println("\033[1;33mExiting GopherTube.\033[0m") // Final exit message
+			return nil // Exit the application
+		default:
+			// Continue
+		}
+
 		mainMenu := []string{"Search YouTube", "Search Downloads"}
 
 		// Check if fzf is installed
@@ -55,27 +75,41 @@ func Action(ctx context.Context, cmd *cli.Command) error {
 			return nil
 		}
 		var choice string
-		action := exec.CommandContext(ctx, path, "--prompt=Select mode: ")
+		// Pass appCtx to fzf command to allow cancellation
+		action := exec.CommandContext(appCtx, path, "--prompt=Select mode: ")
 		action.Stdin = strings.NewReader(strings.Join(mainMenu, "\n"))
 		out, err := action.Output()
+
 		if err != nil {
-			// ESC/cancel or fzf error: exit app
+			// If fzf was cancelled by context (Ctrl+C), or if user pressed ESC from main menu
+			if appCtx.Err() != nil {
+				// Context was cancelled (e.g., by Ctrl+C). The signal handler already printed a message.
+				// The select at the top of the loop will catch appCtx.Done() and exit.
+				continue // Continue to let the outer select handle the exit
+			}
+			// If fzf error is due to ESC or other fzf-internal cancellation (not Ctrl+C context cancellation),
+			// and we are in the main menu, it means the user wants to exit.
+			fmt.Println("\033[1;33mExiting GopherTube.\033[0m")
 			return nil
 		}
 		choice = strings.TrimSpace(string(out))
 		if choice == "" {
-			// Empty selection (e.g., ESC): exit app
+			// Empty selection (e.g., ESC): if in main menu, exit app
+			fmt.Println("\033[1;33mExiting GopherTube.\033[0m")
 			return nil
 		}
 
 		switch choice {
 		case "Search YouTube":
-			gophertubeYouTubeMode(cmd)
+			// Pass appCtx to sub-modes
+			gophertubeYouTubeMode(appCtx, cmd)
 		case "Search Downloads":
-			gophertubeDownloadsMode(cmd)
+			// Pass appCtx to sub-modes
+			gophertubeDownloadsMode(appCtx, cmd)
 		default:
 			// Unknown/empty selection: continue loop and ask again
 			continue
 		}
 	}
+	return nil
 }

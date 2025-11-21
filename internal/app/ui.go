@@ -17,12 +17,12 @@ const barMagenta = "\033[1;35m━━━━━━━━━━━━━━━━�
 
 // fzf default UI options
 const (
-	fzfBorder         = "rounded"
-	fzfMargin         = "1,1"
-	fzfPreviewWrap    = "wrap"
+	fzfBorder      = "rounded"
+	fzfMargin      = "1,1"
+	fzfPreviewWrap = "wrap"
 	// Thumbnail size ratios relative to preview area
-	previewWidthNum   = 9
-	previewWidthDen   = 10
-	previewHeightNum  = 3
-	previewHeightDen  = 5
+	previewWidthNum  = 9
+	previewWidthDen  = 10
+	previewHeightNum = 2
+	previewHeightDen = 5
 )

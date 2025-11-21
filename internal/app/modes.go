@@ -1,11 +1,16 @@
 package app
 
 import (
+	"bufio" // Re-added for bufio.Scanner
+	"context"
 	"fmt"
 	"gophertube/internal/services"
+	"io" // Re-added for io.Pipe
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -73,7 +78,45 @@ func expandPath(p string) string {
 
 // buildDownloadsPreview returns the fzf preview command for the downloads list.
 func buildDownloadsPreview(downloadsPath string) string {
-	const tpl = `sh -c 'file="$1"; base="%s/${file%%%%.*}"; thumb="$base.jpg"; w=$((FZF_PREVIEW_COLUMNS * 9 / 10)); h=$((FZF_PREVIEW_LINES * 3 / 5)); if [ -f "$thumb" ]; then chafa --size=${w}x${h} "$thumb" 2>/dev/null; else echo "No image preview available"; fi; echo; printf "\033[1;36m%%s\033[0m\n" "$file"' sh {}`
+	const tpl = `sh -c '
+		f="$1"; d="$2"
+		
+		# Path Construction (Fix for dot names and path injection)
+		# ${f%%.*} in Go becomes ${f%.*} in Shell (removes only the last extension)
+		base="$d/${f%%.*}"
+		thumb="$base.jpg"
+		video="$d/$f"
+
+		# 1. Dimensions (40%% Height)
+		h=$((FZF_PREVIEW_LINES*2/5))
+		w=$((FZF_PREVIEW_COLUMNS))
+		
+	   if [ -f "$thumb" ]; then 
+            # Draw the Image (High Quality)
+            chafa --size="${w}x${h}" --bg="#000000" --work=9 "$thumb" 2>/dev/null; 
+            
+            # 2. FORCE CURSOR DOWN
+            i=0
+            while [ $i -lt $h ]; do 
+                echo; 
+                i=$((i+1)); 
+            done
+        else 
+            echo "No image preview available";
+            echo; 
+        fi;
+
+		# 3. Get Duration (ffprobe)
+		dur=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 -sexagesimal "$video" 2>/dev/null | cut -d. -f1)
+		if [ -z "$dur" ]; then dur="N/A"; fi
+
+		# 4. Print Info
+		echo "--------------------------------"
+		printf "\033[1;36mFile:      \033[0m%%s\n" "$f"
+		printf "\033[1;36mDuration:  \033[0m%%s\n" "$dur"
+		printf "\033[1;36mDirectory: \033[0m%%s\n" "$d"
+	' sh {} "%[1]s"`
+
 	return fmt.Sprintf(tpl, downloadsPath)
 }
 
@@ -96,7 +139,7 @@ func checkAvailablePlayer() *MediaPlayer {
 }
 
 // playWithPlayer plays media using the detected player.
-func playWithPlayer(player *MediaPlayer, url string, isAudioOnly bool) error {
+func playWithPlayer(ctx context.Context, player *MediaPlayer, url string, isAudioOnly bool) error {
 	var args []string
 
 	if isAudioOnly {
@@ -105,14 +148,42 @@ func playWithPlayer(player *MediaPlayer, url string, isAudioOnly bool) error {
 
 	args = append(args, url)
 
-	cmd := exec.Command(player.Path, args...)
+	cmd := exec.CommandContext(ctx, player.Path, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
 }
 
-func gophertubeYouTubeMode(cmd *cli.Command) {
+// convertSpeedToMBps converts speed string (e.g., "1.23KiB/s") to float64 MB/s.
+func convertSpeedToMBps(speedStr string) float64 {
+	re := regexp.MustCompile(`(\d+\.?\d*)(K|M|G)?iB/s`)
+	match := re.FindStringSubmatch(speedStr)
+
+	if len(match) < 2 {
+		return 0.0 // Could not parse speed
+	}
+
+	value, err := strconv.ParseFloat(match[1], 64)
+	if err != nil {
+		return 0.0
+	}
+
+	unitPrefix := match[2] // K, M, G or empty
+
+	switch unitPrefix {
+	case "K":
+		return value / 1024 // KiB/s to MiB/s
+	case "M":
+		return value // MiB/s (already in MB/s equivalent)
+	case "G":
+		return value * 1024 // GiB/s to MiB/s
+	default: // Assume B/s, convert to MiB/s
+		return value / (1024 * 1024)
+	}
+}
+
+func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 	query, esc := readQuery()
 	if esc || query == "" {
 		fmt.Print("\033[2J\033[H")
@@ -129,6 +200,8 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			for {
 				select {
 				case <-progressDone:
+					return
+				case <-ctx.Done(): // Listen for context cancellation
 					return
 				default:
 					printProgressBar(progressCurrent, progressTotal)
@@ -162,7 +235,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 		time.Sleep(200 * time.Millisecond)
 
 		for {
-			selected := runFzf(videos, cmd.Int(FlagSearchLimit), query)
+			selected := runFzf(ctx, videos, cmd.Int(FlagSearchLimit), query)
 			if selected == -2 {
 				// User pressed escape, go back to new search
 				return
@@ -173,7 +246,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 
 			// Show Watch/Download/Audio menu
 			menu := []string{"Watch", "Download", "Listen"}
-			action := exec.Command("fzf", "--prompt=Action: ")
+			action := exec.CommandContext(ctx, "fzf", "--prompt=Action: ")
 			action.Stdin = strings.NewReader(strings.Join(menu, "\n"))
 			out, errAct := action.Output()
 			choice := strings.TrimSpace(string(out))
@@ -181,58 +254,157 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				// ESC/cancel -> back to results list
 				continue
 			}
-
 			if choice == "Download" {
 				qualities := []string{"1080p", "720p", "480p", "360p", "Audio"}
-				actionQ := exec.Command("fzf", "--prompt=Quality: ")
+				actionQ := exec.CommandContext(ctx, "fzf", "--prompt=Quality: ")
 				actionQ.Stdin = strings.NewReader(strings.Join(qualities, "\n"))
 				outQ, errQ := actionQ.Output()
 				selectedQ := strings.TrimSpace(string(outQ))
 				if errQ != nil || selectedQ == "" {
-					// ESC/cancel -> back to results list
 					continue
 				}
 
-				// Map quality to yt-dlp format
 				format := qualityToFormat(selectedQ)
 				dlPath := expandPath(cmd.String(FlagDownloadsPath))
 				os.MkdirAll(dlPath, 0755)
-				// Sanitize filename
 				filename := sanitizeFilename(videos[selected].Title)
 				outputPath := fmt.Sprintf("%s/%s.%%(ext)s", dlPath, filename)
+
 				fmt.Printf("    %sDownloading '%s' as %s...%s\n", colorGreen, videos[selected].Title, selectedQ, colorReset)
 
+				// 1. SETUP YT-DLP ARGS
 				ytDlpArgs := []string{"-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
 
-				// override the default args with an audio only version.
-				// Note: this downloads it as a .webm, then converts it to a .opus file.
 				if format == "bestaudio" {
 					ytDlpArgs = []string{"-x", "-f", format, "-o", outputPath, "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg", videos[selected].URL}
 				} else {
-					// For video+audio, ensure merge to mp4 when possible
-					// Warn if ffmpeg is missing (yt-dlp needs it to merge)
 					if !hasFFmpeg() {
-						fmt.Println("    " + colorYellow + "Warning: ffmpeg not found. Install ffmpeg to merge video+audio properly." + colorReset)
-						fmt.Println("    " + colorWhite + "On Ubuntu: sudo apt install ffmpeg | macOS: brew install ffmpeg | Arch: pacman -S ffmpeg" + colorReset)
+						fmt.Println("    " + colorYellow + "Warning: ffmpeg not found." + colorReset)
 					}
+					// Standard merge args
 					ytDlpArgs = append([]string{"-f", format}, append([]string{"-o", outputPath, "--merge-output-format", "mp4", "--write-info-json", "--write-thumbnail", "--convert-thumbnails", "jpg"}, videos[selected].URL)...)
 				}
-				actionDl := exec.Command("yt-dlp", ytDlpArgs...)
-				actionDl.Stdout = os.Stdout
-				actionDl.Stderr = os.Stderr
-				err := actionDl.Run()
-				if err == nil {
+
+				// 2. CRITICAL: Add --newline so bufio can scan it, and --progress
+				ytDlpArgs = append(ytDlpArgs, "--progress", "--newline", "--no-color")
+
+				actionDl := exec.CommandContext(ctx, "yt-dlp", ytDlpArgs...)
+				dlReader, dlWriter := io.Pipe()
+				dlErrReader, dlErrWriter := io.Pipe()
+				actionDl.Stdout = dlWriter
+				actionDl.Stderr = dlErrWriter
+
+				downloadDone := make(chan error, 1)
+				progressLineChan := make(chan string, 1)
+
+				// Goroutine: Scan Stdout
+				go func() {
+					scanner := bufio.NewScanner(dlReader)
+					// We look for lines starting with [download]
+					progressLineRegex := regexp.MustCompile(`^\[download\].*`)
+					for scanner.Scan() {
+						line := scanner.Text()
+						if progressLineRegex.MatchString(line) {
+							progressLineChan <- line
+						}
+					}
+					dlReader.Close()
+				}()
+
+				// Goroutine: Scan Stderr (silenced mostly)
+				go func() {
+					scanner := bufio.NewScanner(dlErrReader)
+					for scanner.Scan() {
+						// Optional: Un-comment below to debug errors
+						// fmt.Fprintf(os.Stderr, "Debug: %s\n", scanner.Text())
+					}
+					dlErrReader.Close()
+				}()
+
+				// Goroutine: Run Command
+				go func() {
+					err := actionDl.Run()
+					dlWriter.Close()
+					dlErrWriter.Close()
+					downloadDone <- err
+					close(downloadDone)
+					close(progressLineChan)
+				}()
+
+				// 3. DISPLAY PACMAN PROGRESS
+				var finalDownloadErr error
+				downloadFinished := false
+
+				// Regex to extract percentage (e.g. "45.5%")
+				// Regex to extract percentage (e.g. "45.5% of")
+				pctRegex := regexp.MustCompile(`(\d+\.?\d*)% of`)
+				// Regex to extract speed (e.g. "1.23MiB/s" or "414.07KiB/s")
+				speedRegex := regexp.MustCompile(`at\s+(\d+\.?\d*(?:K|M|G)iB/s)`)
+
+			progressLoop:
+				for {
+					select {
+					case <-ctx.Done(): // Listen for context cancellation
+						finalDownloadErr = ctx.Err()
+						break progressLoop
+					case progressLine, ok := <-progressLineChan:
+						if !ok {
+							break progressLoop
+						}
+
+						// Default to 0 if we can't parse
+						pct := 0.0
+						match := pctRegex.FindStringSubmatch(progressLine)
+						if len(match) > 1 {
+							// convert string "45.5" to float 45.5
+							if val, err := strconv.ParseFloat(match[1], 64); err == nil {
+								pct = val
+							}
+						}
+
+						// Extract speed
+						speedStr := "N/A"
+						speedMatch := speedRegex.FindStringSubmatch(progressLine)
+						if len(speedMatch) > 1 {
+							speedStr = speedMatch[1]
+						}
+
+						currentSpeedMBps := convertSpeedToMBps(speedStr)
+						formattedSpeed := fmt.Sprintf("%.1f MB/s", currentSpeedMBps)
+
+						// Generate and print the new download progress bar
+						// Width: 30 chars for the bar part
+						progressBarOutput := drawDownloadProgressBar(pct, formattedSpeed, 30)
+
+						// \r overwrites the current line
+						fmt.Printf("\r    %s", progressBarOutput)
+
+					case err := <-downloadDone:
+						finalDownloadErr = err
+						downloadFinished = true
+						break progressLoop
+					}
+				}
+
+				fmt.Print("\r" + strings.Repeat(" ", 100) + "\r") // Clear line
+				if finalDownloadErr == nil {
 					fmt.Printf("    %sDownload complete!%s\n", colorGreen, colorReset)
 					fmt.Printf("    %sSaved to: %s%s\n", colorWhite, dlPath, colorReset)
 				} else {
-					fmt.Printf("    %sDownload failed!%s\n", colorRed, colorReset)
+					fmt.Printf("    %sDownload failed! %v%s\n", colorRed, finalDownloadErr, colorReset)
 				}
-				fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
-				os.Stdin.Read(make([]byte, 1))
-				// After handling download, return to results list
-				continue
-			}
 
+				fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
+
+				// ... Input blocking code ...
+				oldState, _ := readline.MakeRaw(int(os.Stdin.Fd()))
+				os.Stdin.Read(make([]byte, 1))
+				readline.Restore(int(os.Stdin.Fd()), oldState)
+
+				if downloadFinished {
+					continue //Return to the Search Results
+				}
+			}
 			// New Audio playback logic
 			if choice == "Listen" {
 				player := checkAvailablePlayer()
@@ -255,7 +427,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				fmt.Println()
 
 				// Extract direct audio stream URL
-				audioCmd := exec.Command("yt-dlp", "-f", "bestaudio[ext=m4a]/bestaudio", "-g", videos[selected].URL)
+				audioCmd := exec.CommandContext(ctx, "yt-dlp", "-f", "bestaudio[ext=m4a]/bestaudio", "-g", videos[selected].URL)
 				streamURLBytes, err := audioCmd.Output()
 				if err != nil {
 					fmt.Println("    " + colorRed + "Failed to get direct audio URL." + colorReset)
@@ -266,12 +438,16 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				}
 				streamURL := strings.TrimSpace(string(streamURLBytes))
 
-				if err := playWithPlayer(player, streamURL, true); err != nil {
+				if err := playWithPlayer(ctx, player, streamURL, true); err != nil {
 					fmt.Printf("    \033[1;31mFailed to play audio with %s.\033[0m\n", player.Name)
 				}
 
-				fmt.Println("    " + colorWhite + "Press Enter to return." + colorReset)
+				fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
+
+				// ... Input blocking code ...
+				oldState, _ := readline.MakeRaw(int(os.Stdin.Fd()))
 				os.Stdin.Read(make([]byte, 1))
+				readline.Restore(int(os.Stdin.Fd()), oldState)
 				continue // Return to the search results
 			}
 
@@ -332,6 +508,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				fmt.Println("    " + colorYellow + "Controls: 'q' to quit, SPACE to pause/resume, ←→ to seek" + colorReset)
 			} else { // Play in MPV (External)
 				mpvArgs = append(mpvArgs, "--fs") // Fullscreen for external MPV
+				mpvArgs = append(mpvArgs, "--really-quiet")
 			}
 
 			if quality != "" {
@@ -343,7 +520,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			}
 
 			mpvArgs = append(mpvArgs, videos[selected].URL)
-			mpvCmd := exec.Command(mpvPath, mpvArgs...)
+			mpvCmd := exec.CommandContext(ctx, mpvPath, mpvArgs...)
 			mpvCmd.Stdin = os.Stdin // Ensure mpv receives input for 'q'
 			mpvCmd.Stdout = os.Stdout
 			mpvCmd.Stderr = os.Stderr
@@ -353,7 +530,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 	}
 }
 
-func gophertubeDownloadsMode(cmd *cli.Command) {
+func gophertubeDownloadsMode(ctx context.Context, cmd *cli.Command) {
 	dlPath := expandPath(cmd.String(FlagDownloadsPath))
 	files, err := os.ReadDir(dlPath)
 	if err != nil || len(files) == 0 {
@@ -373,7 +550,7 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
 		return
 	}
 	fzfPreview := buildDownloadsPreview(dlPath)
-	action := exec.Command("fzf", "--ansi", "--preview-window=wrap", "--prompt=Downloads: ", "--preview", fzfPreview)
+	action := exec.CommandContext(ctx, "fzf", "--ansi", "--preview-window=wrap", "--prompt=Downloads: ", "--preview", fzfPreview)
 	action.Stdin = strings.NewReader(strings.Join(videoFiles, "\n"))
 	out, _ := action.Output()
 	selected := strings.TrimSpace(string(out))
@@ -432,12 +609,42 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
 		mpvArgs = append(mpvArgs, "--loop=no")      // Ensure it doesn't loop
 	} else { // Play in MPV (External)
 		mpvArgs = append(mpvArgs, "--fs") // Fullscreen for external MPV
+		mpvArgs = append(mpvArgs, "--really-quiet")
 	}
 
 	mpvArgs = append(mpvArgs, filePath)
-	mpvCmd := exec.Command(mpvPath, mpvArgs...)
+	mpvCmd := exec.CommandContext(ctx, mpvPath, mpvArgs...)
 	mpvCmd.Stdin = os.Stdin // Ensure mpv receives input for 'q'
 	mpvCmd.Stdout = os.Stdout
 	mpvCmd.Stderr = os.Stderr
 	mpvCmd.Run()
+}
+
+// New function for download progress bar in the style of search progress
+func drawDownloadProgressBar(percent float64, speed string, width int) string {
+	if percent < 0 {
+		percent = 0
+	}
+	if percent > 100 {
+		percent = 100
+	}
+
+	filledWidth := int((percent / 100.0) * float64(width))
+	emptyWidth := width - filledWidth
+
+	barFilled := strings.Repeat("█", filledWidth)
+	barEmpty := strings.Repeat("░", emptyWidth)
+
+	// Add spinning animation
+	spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
+	spinner := spinners[time.Now().UnixNano()/100000000%int64(len(spinners))]
+
+	// Color codes for the bar
+	bar := fmt.Sprintf("\033[1;36m%s\033[0;37m%s\033[0m", barFilled, barEmpty)
+
+	// Format percentage
+	percentStr := fmt.Sprintf("%5.1f%%", percent)
+
+	// Combine spinner, bar, percentage and speed
+	return fmt.Sprintf("%s %s %s %s", spinner, bar, percentStr, speed)
 }
