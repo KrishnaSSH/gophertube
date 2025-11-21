@@ -152,7 +152,11 @@ func playWithPlayer(ctx context.Context, player *MediaPlayer, url string, isAudi
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	return cmd.Run()
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("failed to play with %s: %w", player.Name, err)
+	}
+	return nil
 }
 
 // convertSpeedToMBps converts speed string (e.g., "1.23KiB/s") to float64 MB/s.
@@ -451,8 +455,19 @@ func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 				continue // Return to the search results
 			}
 
-			// Watch as before
-			fmt.Printf("    %sPlaying: %s%s\n", colorYellow, videos[selected].Title, colorReset)
+			if choice == "Watch" {
+				player := checkAvailablePlayer()
+				if player == nil {
+					fmt.Println("    " + colorRed + "No media player (mpv) found!" + colorReset)
+					fmt.Println("    " + colorWhite + "Please install mpv to play videos." + colorReset)
+					fmt.Println("    " + colorYellow + "Install mpv: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)" + colorReset)
+					fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
+					os.Stdin.Read(make([]byte, 1))
+					continue // Go back to the search results
+				}
+				fmt.Printf("    %sPlayer check: mpv found at %s%s\n", colorGreen, player.Path, colorReset)
+				fmt.Printf("    %sPlaying: %s%s\n", colorYellow, videos[selected].Title, colorReset)
+			}
 			fmt.Printf("    %sChannel: %s%s\n", colorWhite, videos[selected].Author, colorReset)
 			fmt.Printf("    %sDuration: %s%s\n", colorWhite, videos[selected].Duration, colorReset)
 			fmt.Printf("    %sPublished: %s%s\n", colorCyan, videos[selected].Published, colorReset)
@@ -502,11 +517,20 @@ func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 			var mpvArgs []string
 
 			if playbackChoice == 't' {
+				compat := checkTerminalCompatibility()
+				if !compat.HasSixel && !compat.HasCaca {
+					fmt.Println("    " + colorYellow + "Warning: In-terminal video playback may not be supported." + colorReset)
+					fmt.Println("    " + colorYellow + "For best results, please install 'libsixel-bin' or 'caca-utils'." + colorReset)
+					fmt.Println("    " + colorYellow + "Continuing playback attempt in 3 seconds..." + colorReset)
+					time.Sleep(3 * time.Second)
+				}
+				fmt.Println("    " + colorCyan + "Log: User selected in-terminal playback." + colorReset)
 				mpvArgs = append(mpvArgs, "--vo=tct")       //  tct for terminal compatibility
 				mpvArgs = append(mpvArgs, "--really-quiet") // Suppress initial logs
 				mpvArgs = append(mpvArgs, "--loop=no")      // Ensure it doesn't loop
 				fmt.Println("    " + colorYellow + "Controls: 'q' to quit, SPACE to pause/resume, ←→ to seek" + colorReset)
 			} else { // Play in MPV (External)
+				fmt.Println("    " + colorCyan + "Log: User selected external mpv playback." + colorReset)
 				mpvArgs = append(mpvArgs, "--fs") // Fullscreen for external MPV
 				mpvArgs = append(mpvArgs, "--really-quiet")
 			}
@@ -520,11 +544,29 @@ func gophertubeYouTubeMode(ctx context.Context, cmd *cli.Command) {
 			}
 
 			mpvArgs = append(mpvArgs, videos[selected].URL)
+
+			fmt.Printf("    %sLog: Preparing to play video: %s%s\n", colorCyan, videos[selected].Title, colorReset)
+			fmt.Printf("    %sLog: Video URL: %s%s\n", colorCyan, videos[selected].URL, colorReset)
+			fmt.Printf("    %sLog: Constructing mpv command with arguments: %v%s\n", colorCyan, mpvArgs, colorReset)
+
 			mpvCmd := exec.CommandContext(ctx, mpvPath, mpvArgs...)
 			mpvCmd.Stdin = os.Stdin // Ensure mpv receives input for 'q'
 			mpvCmd.Stdout = os.Stdout
 			mpvCmd.Stderr = os.Stderr
-			mpvCmd.Run()
+			err = mpvCmd.Run()
+			if err != nil {
+				fmt.Printf("    \033[1;31mError playing video: %v\033[0m\n", err)
+				if playbackChoice == 't' {
+					fmt.Println("    " + colorYellow + "In-terminal video playback often has compatibility issues." + colorReset)
+					fmt.Println("    " + colorYellow + "Try selecting 'm' for external mpv playback instead." + colorReset)
+				} else {
+					fmt.Println("    " + colorYellow + "Ensure mpv is installed, in your PATH, and yt-dlp is providing a valid video URL." + colorReset)
+				}
+				fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
+				os.Stdin.Read(make([]byte, 1))
+			} else {
+				fmt.Println("    " + colorGreen + "Log: Playback command executed successfully." + colorReset)
+			}
 			continue
 		}
 	}
@@ -558,6 +600,18 @@ func gophertubeDownloadsMode(ctx context.Context, cmd *cli.Command) {
 		return
 	}
 	filePath := filepath.Join(dlPath, selected)
+
+	player := checkAvailablePlayer()
+	if player == nil {
+		fmt.Println("    " + colorRed + "No media player (mpv) found!" + colorReset)
+		fmt.Println("    " + colorWhite + "Please install mpv to play videos." + colorReset)
+		fmt.Println("    " + colorYellow + "Install mpv: sudo apt install mpv (Ubuntu) | brew install mpv (macOS)" + colorReset)
+		fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
+		os.Stdin.Read(make([]byte, 1))
+		return // Go back from downloads mode
+	}
+	fmt.Printf("    %sPlayer check: mpv found at %s%s\n", colorGreen, player.Path, colorReset)
+
 	fmt.Printf("    %sPlaying: %s%s\n", colorYellow, selected, colorReset)
 	fmt.Println()
 	fmt.Println("    " + barMagenta)
@@ -604,20 +658,46 @@ func gophertubeDownloadsMode(ctx context.Context, cmd *cli.Command) {
 	var mpvArgs []string
 
 	if playbackChoice == 't' {
+		compat := checkTerminalCompatibility()
+		if !compat.HasSixel && !compat.HasCaca {
+			fmt.Println("    " + colorYellow + "Warning: In-terminal video playback may not be supported." + colorReset)
+			fmt.Println("    " + colorYellow + "For best results, please install 'libsixel-bin' or 'caca-utils'." + colorReset)
+			fmt.Println("    " + colorYellow + "Continuing playback attempt in 3 seconds..." + colorReset)
+			time.Sleep(3 * time.Second)
+		}
+		fmt.Println("    " + colorCyan + "Log: User selected in-terminal playback." + colorReset)
 		mpvArgs = append(mpvArgs, "--vo=tct")       // tct for terminal video compatibility
 		mpvArgs = append(mpvArgs, "--really-quiet") // Suppress initial logs
 		mpvArgs = append(mpvArgs, "--loop=no")      // Ensure it doesn't loop
 	} else { // Play in MPV (External)
+		fmt.Println("    " + colorCyan + "Log: User selected external mpv playback." + colorReset)
 		mpvArgs = append(mpvArgs, "--fs") // Fullscreen for external MPV
 		mpvArgs = append(mpvArgs, "--really-quiet")
 	}
 
 	mpvArgs = append(mpvArgs, filePath)
+
+	fmt.Printf("    %sLog: Preparing to play video file: %s%s\n", colorCyan, filePath, colorReset)
+	fmt.Printf("    %sLog: Constructing mpv command with arguments: %v%s\n", colorCyan, mpvArgs, colorReset)
+
 	mpvCmd := exec.CommandContext(ctx, mpvPath, mpvArgs...)
 	mpvCmd.Stdin = os.Stdin // Ensure mpv receives input for 'q'
 	mpvCmd.Stdout = os.Stdout
 	mpvCmd.Stderr = os.Stderr
-	mpvCmd.Run()
+	err = mpvCmd.Run()
+	if err != nil {
+		fmt.Printf("    \033[1;31mError playing video: %v\033[0m\n", err)
+		if playbackChoice == 't' {
+			fmt.Println("    " + colorYellow + "In-terminal video playback often has compatibility issues." + colorReset)
+			fmt.Println("    " + colorYellow + "Try selecting 'm' for external mpv playback instead." + colorReset)
+		} else {
+			fmt.Println("    " + colorYellow + "Ensure mpv is installed, in your PATH, and the video file is not corrupted." + colorReset)
+		}
+		fmt.Println("    " + colorWhite + "Press any key to return..." + colorReset)
+		os.Stdin.Read(make([]byte, 1))
+	} else {
+		fmt.Println("    " + colorGreen + "Log: Playback command executed successfully." + colorReset)
+	}
 }
 
 // New function for download progress bar in the style of search progress

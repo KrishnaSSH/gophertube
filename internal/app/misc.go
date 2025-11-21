@@ -265,3 +265,18 @@ func runFzf(ctx context.Context, videos []types.Video, searchLimit int, query st
 		return idx
 	}
 }
+
+type TerminalCompatibility struct {
+	HasSixel bool
+	HasCaca  bool
+}
+
+func checkTerminalCompatibility() TerminalCompatibility {
+	_, sixelErr := exec.LookPath("sixel-encode")
+	_, cacaErr := exec.LookPath("cacafire")
+
+	return TerminalCompatibility{
+		HasSixel: sixelErr == nil,
+		HasCaca:  cacaErr == nil,
+	}
+}
