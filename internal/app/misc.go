@@ -309,9 +309,9 @@ func checkYTdlpVersion() {
 	latestVersion := release.TagName
 
 	if currentVersion != latestVersion {
-		fmt.Printf("\n    %sWarning: Your yt-dlp version (%s) is outdated. Latest is %s.%s\n", colorYellow, currentVersion, latestVersion, colorReset)
-		fmt.Printf("    %sSome of features might not works properly%s\n", colorRed, colorReset)
-		fmt.Printf("    %sPlease update yt-dlp by running: yt-dlp -U or your package manager%s\n\n", colorCyan, colorReset)
+		fmt.Printf("\n    %sWarning: Your yt-dlp version (%s) is outdated.The latest version is %s.%s\n", colorYellow, currentVersion, latestVersion, colorReset)
+		fmt.Printf("    %sSome features might not work properly.%s\n", colorRed, colorReset)
+		fmt.Printf("    %sPlease update yt-dlp by running: yt-dlp -U or using your package manager.%s\n\n", colorCyan, colorReset)
 	}
 
 	// Check for terminal compatibility
