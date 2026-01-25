@@ -19,7 +19,7 @@
             pname = "gophertube";
             version = "2.8.0";
             src = pkgs.lib.cleanSource ./.;
-            vendorHash = "";
+            vendorHash = "sha256-WfVoCxzMk+h4AP1zgTNRXTpj8Ltu71YrsQ7OoU3Y4tg=";
 
             buildInputs = with pkgs; [
               mpv
