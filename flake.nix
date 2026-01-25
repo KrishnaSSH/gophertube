@@ -12,17 +12,18 @@
 
       ];
       systems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
-      perSystem = { config, self', inputs', pkgs, system, ... }: {
+      perSystem = { pkgs, ... }: {
         packages.default = pkgs.buildGoModule {
           pname = "gophertube";
           version = "1.2.1";
           src = pkgs.lib.cleanSource ./.;
-          vendorHash = "sha256-TBjru54oV2iwAjvqhQcsVr/yQfp6fgukNX/OkZdBWjw=";
+          vendorHash = "sha256-WfVoCxzMk+h4AP1zgTNRXTpj8Ltu71YrsQ7OoU3Y4tg=";
 
           buildInputs = with pkgs; [
             mpv
             fzf
             chafa
+            yt-dlp
           ];
 
           nativeBuildInputs = with pkgs; [
