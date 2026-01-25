@@ -12,32 +12,25 @@
       systems = flake-utils.lib.defaultSystems;
 
       perSystem = { pkgs, ... }:
-
         let
-
+          runtimeDeps = with pkgs; [ mpv fzf chafa yt-dlp ];
           gophertubePkg = pkgs.buildGoModule {
             pname = "gophertube";
             version = "2.8.0";
             src = pkgs.lib.cleanSource ./.;
             vendorHash = "sha256-WfVoCxzMk+h4AP1zgTNRXTpj8Ltu71YrsQ7OoU3Y4tg=";
 
-            buildInputs = with pkgs; [
-              mpv
-              fzf
-              chafa
-              yt-dlp
-            ];
-
-            nativeBuildInputs = with pkgs; [ go ];
-            nativeCheckInputs = with pkgs; [ go ];
+            buildInputs = runtimeDeps;
+            nativeBuildInputs = [ pkgs.go pkgs.makeWrapper ] ++ runtimeDeps;
+            nativeCheckInputs = [ pkgs.go pkgs.makeWrapper ] ++ runtimeDeps;
 
             buildPhase = ''
               go build -o gophertube main.go
             '';
 
             installPhase = ''
-              mkdir -p $out/bin
-              cp gophertube $out/bin/
+              install -Dm755 gophertube $out/bin/gophertube
+              wrapProgram $out/bin/gophertube --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
               mkdir -p $out/share/man/man1
               cp $src/man/gophertube.1 $out/share/man/man1/
               mkdir -p $out/config
@@ -48,13 +41,7 @@
           packages.default = gophertubePkg;
 
           devShells.default = pkgs.mkShell {
-            buildInputs = with pkgs; [
-              go
-              mpv
-              fzf
-              chafa
-              yt-dlp
-            ];
+            buildInputs = [ pkgs.go ] ++ runtimeDeps;
           };
 
           apps.default = flake-utils.lib.mkApp {
