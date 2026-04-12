@@ -13,7 +13,7 @@
 
       perSystem = { pkgs, ... }:
         let
-          runtimeDeps = with pkgs; [ mpv fzf chafa yt-dlp ];
+          runtimeDeps = with pkgs; [ mpv chafa yt-dlp ];
           gophertubePkg = pkgs.buildGoModule {
             pname = "gophertube";
             version = "2.8.0";

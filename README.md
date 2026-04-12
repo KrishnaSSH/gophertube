@@ -39,7 +39,6 @@ A simple terminal YouTube client for searching and watching videos using [yt-dlp
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
   - [Quick Install](#installation)
-  - [Package Managers](#package-managers)
   - [Manual Installation](#installation)
 - [Usage](#usage)
   - [Keyboard Shortcuts](#keyboard-shortcuts)
@@ -53,7 +52,7 @@ A simple terminal YouTube client for searching and watching videos using [yt-dlp
 
 ## Overview
 
-GopherTube is a terminal-based YouTube client. It scrapes and parses the youtube website to search YouTube and uses [mpv](https://mpv.io/) to play videos. The UI is built with Go and uses fzf, and is keyboard-driven.
+GopherTube is a tui based youtube client. It scrapes and parses the youtube website to get the metadate and uses [mpv](https://mpv.io/) to play videos. The ui is built with bubbletea, and is keyboard driven.
 
 **Screenshots**
 
@@ -78,17 +77,14 @@ Watch the demo video [here](https://github.com/KrishnaSSH/GopherTube/raw/refs/he
 - **Thumbnail preview** in downloads menu
 
 ## Who is this Project for?
-- This Project is for everyone who enjoys Terminal apps
-- For Everyone Who respects thier Privacy and Freedom
-- Anyone who wants to watch videos while using as few system resources as possible — for example, if you have an older or low-spec machine that struggles to run YouTube in a full web browser, this project can help you cut down on resource usage.
-
+- this project is for everyone who enjoys tuis,
+- anyone who wants to watch videos while using low system resources. for example if you have an older or lowspec machine that struggles to run youtube in full web browser this app might help you cut down recourse usage.
 ---
 
 ## Prerequisites
 
 - [Go 1.21+](https://go.dev/dl/)
 - [mpv](https://mpv.io/) (media player)
-- [fzf](https://github.com/junegunn/fzf) (fuzzy finder)
 - [chafa](https://hpjansson.org/chafa/) (terminal image preview)
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) (YouTube downloader)
 
@@ -96,14 +92,17 @@ Install dependencies:
 
 ```bash
 # Ubuntu/Debian
-sudo apt install mpv fzf chafa
+sudo apt install mpv chafa
 pip install -U yt-dlp
 
 # macOS
-brew install mpv fzf chafa yt-dlp
+brew install mpv chafa yt-dlp
 
 # Arch Linux (Aur is having shasum issues install it from the script)
-yay -S gophertube yt-dlp 
+
+yay -S gophertube
+or 
+yay -S gophertube-bin # for direct binary downloads
 ```
 
 ---
@@ -115,17 +114,6 @@ yay -S gophertube yt-dlp
 curl -sSL https://raw.githubusercontent.com/KrishnaSSH/GopherTube/main/install.sh | bash
 ```
 
-### Package Managers
-
-```bash
-# Arch Linux (AUR)
-yay -S gophertube
-
-# macOS (Homebrew) - coming soon
-# brew tap KrishnaSSH/tap
-# brew install gophertube
-```
-
 **Manual Installation:**
 ```bash
 git clone https://github.com/KrishnaSSH/GopherTube.git
@@ -133,25 +121,15 @@ cd GopherTube
 go build -o gophertube
 ./gophertube
 ```
-
 ---
 
 ## Usage
 
-- Start the app: `./gophertube`
-- Type a search and press Enter (or press Escape to exit)
-- Use ↑/↓ to move, Enter to play, Tab to load more, Esc to go back to search
-- Thumbnails and video info are shown in the preview
+- Start the app: `gophertube`
+- Select between Search Youtube, Search Downloads, Settings, Quit. and press enter.
+- Use ↑/↓ or j/k to move, Enter to play, Tab to load more, Esc to go back to search
 - mpv opens to play the selected video
 
-### Keyboard Shortcuts
-
-| Key      | Action                  |
-|----------|-------------------------|
-| Enter    | Search / Play video     |
-| ↑/↓      | Navigate video list     |
-| Tab      | Load more videos        |
-| Esc      | Go back / Quit          |
 
 ---
 
@@ -163,7 +141,7 @@ Create `~/.config/gophertube/gophertube.toml`:
 search_limit = 30
 quality = "1080p"           # default: 1080p (options: 1080p, 720p, 480p, 360p, Audio)
 downloads_path = "/home/$USER/Videos/GopherTube"  # where to save downloads
-theme = "Minimal"                                 # default: Minimal (options: Minimal, Gopher, Gruvbox)
+theme = "Minimal"                                 # default: Minimal (options: Minimal, Gopher, Gruvbox, etc)
 ```
 
 ### Configuration Options
@@ -179,23 +157,20 @@ theme = "Minimal"                                 # default: Minimal (options: M
 
 ## Troubleshooting
 
-- __fzf not found__: install fzf (see Prerequisites) and ensure it’s in PATH.
 - __mpv not launching__: verify mpv is installed and accessible from terminal.
 - __No thumbnails__: ensure `chafa` is installed; some terminals may not support images.
 - __yt-dlp errors__: update yt-dlp to the latest version.
 
 ## FAQ
 
-- __Does this use the YouTube API?__ No, it scrapes the website. No API key required.
+- __Does this use the YouTube API?__ No, it scrapes the website. API key is not required.
 - __Can I play audio only?__ Yes. Choose "Listen" or set quality to `Audio`.
 - __Where are files downloaded?__ See `downloads_path` in config.
 
 ## Roadmap
 
 - Configurable keybindings
-- Optional inline player controls
-- Windows support (best effort)
-- CI and release artifacts for more platforms
+- thumbnail support in the bubbletea rewrite
 
 ## Star History
 
