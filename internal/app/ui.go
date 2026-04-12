@@ -1,28 +1,29 @@
 package app
 
-// Shared UI constants and helpers
+import "github.com/charmbracelet/lipgloss"
 
-const (
-	colorReset   = "\033[0m"
-	colorRed     = "\033[1;31m"
-	colorGreen   = "\033[1;32m"
-	colorYellow  = "\033[1;33m"
-	colorMagenta = "\033[1;35m"
-	colorCyan    = "\033[1;36m"
-	colorWhite   = "\033[1;37m"
+// Shared UI styles
+var (
+	textPrimary  = lipgloss.NewStyle()
+	textMuted    = lipgloss.NewStyle().Faint(true)
+	textEmphasis = lipgloss.NewStyle().Bold(true)
+	textStrong   = lipgloss.NewStyle().Bold(true)
+	textAccent   = lipgloss.NewStyle().Bold(true)
+	textWarn     = lipgloss.NewStyle().Bold(true)
+	textError    = lipgloss.NewStyle().Bold(true)
 )
 
-// Decorative bar reused in sections
-const barMagenta = "\033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m"
+// Decorative divider reused in sections
+const dividerLine = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 // fzf default UI options
 const (
-	fzfBorder         = "rounded"
-	fzfMargin         = "1,1"
-	fzfPreviewWrap    = "wrap"
+	fzfBorder      = "rounded"
+	fzfMargin      = "1,1"
+	fzfPreviewWrap = "wrap"
 	// Thumbnail size ratios relative to preview area
-	previewWidthNum   = 9
-	previewWidthDen   = 10
-	previewHeightNum  = 3
-	previewHeightDen  = 5
+	previewWidthNum  = 9
+	previewWidthDen  = 10
+	previewHeightNum = 3
+	previewHeightDen = 5
 )

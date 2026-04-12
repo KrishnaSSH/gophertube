@@ -8,52 +8,47 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/chzyer/readline"
 )
 
-// buildSearchHeader creates the colored fzf header for the search UI.
+// buildSearchHeader creates the styled fzf header for the search UI.
 func buildSearchHeader(resultCount int, query string) string {
-	return fmt.Sprintf(
-		"--header=%s↑/↓%s to move • %stype%s to search • %sEnter%s to select • %sTab%s to load more • %s%d results • %s%s%s",
-		colorCyan, colorReset,
-		colorYellow, colorReset,
-		colorGreen, colorReset,
-		colorMagenta, colorReset,
-		colorWhite, resultCount,
-		colorMagenta, query, colorReset,
-	)
+	header := ""
+	header += textMuted.Render("↑/↓") + " " + textMuted.Render("to move")
+	header += " • " + textEmphasis.Render("type") + " " + textMuted.Render("to search")
+	header += " • " + textEmphasis.Render("Enter") + " " + textMuted.Render("to select")
+	header += " • " + textEmphasis.Render("Tab") + " " + textMuted.Render("to load more")
+	header += " • " + textStrong.Render(strconv.Itoa(resultCount)) + " " + textMuted.Render("results")
+	header += " • " + textEmphasis.Render(query)
+	return "--header=" + header
 }
 
 // buildSearchPreview returns the shell for fzf --preview for search results.
 // It renders the thumbnail via chafa, pads to place the cursor below the image,
-// then prints colored metadata.
+// then prints plain metadata.
 func buildSearchPreview() string {
-	tpl := `sh -c 'thumbfile="$1"; title="$2"; w=$((FZF_PREVIEW_COLUMNS * %d / %d)); h=$((FZF_PREVIEW_LINES * %d / %d)); if [ -s "$thumbfile" ] && [ -f "$thumbfile" ]; then chafa --size=${w}x${h} "$thumbfile" 2>/dev/null; else echo "No image preview available"; fi; pad=$((FZF_PREVIEW_LINES - h - 1)); i=0; while [ $i -gt -1 ] && [ $i -lt $pad ]; do echo; i=$((i+1)); done; printf "%s%%s%s\n" "$title"; printf "%sDuration:%s %%s\n" "$3"; printf "%sPublished:%s %%s\n" "$4"; printf "%sAuthor:%s %%s\n" "$5"; printf "%sViews:%s %%s\n" "$6"' sh {3} {2} {4} {8} {5} {6}`
+	tpl := `sh -c 'thumbfile="$1"; title="$2"; w=$((FZF_PREVIEW_COLUMNS * %d / %d)); h=$((FZF_PREVIEW_LINES * %d / %d)); if [ -s "$thumbfile" ] && [ -f "$thumbfile" ]; then chafa --size=${w}x${h} "$thumbfile" 2>/dev/null; else echo "No image preview available"; fi; pad=$((FZF_PREVIEW_LINES - h - 1)); i=0; while [ $i -gt -1 ] && [ $i -lt $pad ]; do echo; i=$((i+1)); done; printf "%%s\n" "$title"; printf "Duration: %%s\n" "$3"; printf "Published: %%s\n" "$4"; printf "Author: %%s\n" "$5"; printf "Views: %%s\n" "$6"' sh {3} {2} {4} {8} {5} {6}`
 	return fmt.Sprintf(
 		tpl,
 		previewWidthNum, previewWidthDen,
 		previewHeightNum, previewHeightDen,
-		colorCyan, colorReset,
-		colorYellow, colorReset,
-		colorCyan, colorReset,
-		colorGreen, colorReset,
-		colorMagenta, colorReset,
 	)
 }
 
 func printBanner() {
 	fmt.Print("\033[2J\033[H")
 	fmt.Println()
-	fmt.Println("    \033[1;33mGopherTube\033[0m")
-	fmt.Println("    \033[0;37mversion " + version + "\033[0m")
+	fmt.Println("    " + textEmphasis.Render("GopherTube"))
+	fmt.Println("    " + textMuted.Render("version "+version))
 	fmt.Println()
-	fmt.Println("    \033[1;36mFast Youtube Terminal UI\033[0m")
-	fmt.Println("    \033[0;37mPress Ctrl+C or Esc to exit\033[0m")
+	fmt.Println("    " + textPrimary.Render("Fast Youtube Terminal UI"))
+	fmt.Println("    " + textMuted.Render("Press Ctrl+C or Esc to exit"))
 	fmt.Println()
-	fmt.Println("    \033[1;35m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\033[0m")
+	fmt.Println("    " + textEmphasis.Render(dividerLine))
 	fmt.Println()
 }
 
@@ -66,12 +61,11 @@ func printProgressBar(current, total int) {
 	bar := ""
 	for i := 0; i < width; i++ {
 		if i < filled {
-			bar += "\033[1;36m█" // Cyan for filled (original color)
+			bar += textEmphasis.Render("█")
 		} else {
-			bar += "\033[0;37m░"
+			bar += textMuted.Render("░")
 		}
 	}
-	bar += "\033[0m"
 
 	// Add spinning animation
 	spinners := []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"}
@@ -104,17 +98,17 @@ func printSearchStats(videos []types.Video) {
 		avgDuration = "~" + videos[0].Duration // Simple approximation
 	}
 
-	fmt.Println("    \033[1;36mSearch Statistics:\033[0m")
-	fmt.Printf("    \033[0;37m• Total videos found: \033[1;32m%d\033[0m\n", len(videos))
-	fmt.Printf("    \033[0;37m• Unique channels: \033[1;33m%d\033[0m\n", len(channels))
+	fmt.Println("    " + textEmphasis.Render("Search Statistics:"))
+	fmt.Printf("    %s%s\n", textMuted.Render("• Total videos found: "), textStrong.Render(strconv.Itoa(len(videos))))
+	fmt.Printf("    %s%s\n", textMuted.Render("• Unique channels: "), textStrong.Render(strconv.Itoa(len(channels))))
 
 	if avgDuration != "" {
-		fmt.Printf("    \033[0;37m• Average duration: \033[1;35m%s\033[0m\n", avgDuration)
+		fmt.Printf("    %s%s\n", textMuted.Render("• Average duration: "), textStrong.Render(avgDuration))
 	}
 
 	// Show top channels if there are multiple
 	if len(channels) > 1 && len(videos) > 3 {
-		fmt.Printf("    \033[0;37m• Most active channel: \033[1;31m%s\033[0m\n", getTopChannel(channels))
+		fmt.Printf("    %s%s\n", textMuted.Render("• Most active channel: "), textStrong.Render(getTopChannel(channels)))
 	}
 
 	fmt.Println()
@@ -144,13 +138,13 @@ func printSearchTips() {
 	}
 
 	randomTip := tips[time.Now().Unix()%int64(len(tips))]
-	fmt.Printf("    \033[1;33m%s\033[0m\n", randomTip)
+	fmt.Printf("    %s\n", textMuted.Render(randomTip))
 	fmt.Println()
 }
 
 func readQuery() (string, bool) {
 	printBanner()
-	fmt.Print("    \033[1;32m>\033[0m ")
+	fmt.Print("    " + textEmphasis.Render(">") + " ")
 
 	// Use raw terminal mode for proper key detection
 	oldState, err := readline.MakeRaw(int(os.Stdin.Fd()))
@@ -229,7 +223,7 @@ func runFzf(videos []types.Video, searchLimit int, query string) int {
 		cmd.Stdout = pw
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
-			fmt.Println("\033[1;31mfzf error:\033[0m", err)
+			fmt.Println(textError.Render("fzf error:"), err)
 			return -1
 		}
 		pw.Close()
@@ -240,7 +234,7 @@ func runFzf(videos []types.Video, searchLimit int, query string) int {
 			return -2 // user pressed escape in fzf
 		}
 		if lines[0] == "tab" {
-			fmt.Printf("    \033[1;35mLoading more results...\033[0m\n")
+			fmt.Printf("    %s\n", textMuted.Render("Loading more results..."))
 			limit += searchLimit
 			moreVideos, err := services.SearchYouTube(query, limit, func(current, total int) {
 				// progressCurrent = current // This line was removed
@@ -250,7 +244,7 @@ func runFzf(videos []types.Video, searchLimit int, query string) int {
 				continue
 			}
 			videos = moreVideos
-			fmt.Printf("    \033[1;32mLoaded %d total results!\033[0m\n", len(videos))
+			fmt.Printf("    %s\n", textEmphasis.Render(fmt.Sprintf("Loaded %d total results!", len(videos))))
 			printSearchStats(videos)
 			continue
 		}

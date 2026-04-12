@@ -47,6 +47,7 @@ func extractVideosFromJSON(data []byte, limit int) ([]types.Video, error) {
 	}
 
 	videos := make([]types.Video, 0, limit)
+	seen := make(map[string]struct{}, limit)
 
 	// Targeted JSON navigation - look for specific paths where videos are stored
 	var extractVideos func(interface{}) bool
@@ -60,9 +61,12 @@ func extractVideosFromJSON(data []byte, limit int) ([]types.Video, error) {
 			if vr, ok := m["videoRenderer"]; ok {
 				v := parseVideoRenderer(vr)
 				if v.Title != "" && v.URL != "" {
-					videos = append(videos, v)
-					if len(videos) >= limit {
-						return true
+					if _, ok := seen[v.URL]; !ok {
+						seen[v.URL] = struct{}{}
+						videos = append(videos, v)
+						if len(videos) >= limit {
+							return true
+						}
 					}
 				}
 			}
@@ -71,9 +75,12 @@ func extractVideosFromJSON(data []byte, limit int) ([]types.Video, error) {
 			if cr, ok := m["compactVideoRenderer"]; ok {
 				v := parseVideoRenderer(cr)
 				if v.Title != "" && v.URL != "" {
-					videos = append(videos, v)
-					if len(videos) >= limit {
-						return true
+					if _, ok := seen[v.URL]; !ok {
+						seen[v.URL] = struct{}{}
+						videos = append(videos, v)
+						if len(videos) >= limit {
+							return true
+						}
 					}
 				}
 			}

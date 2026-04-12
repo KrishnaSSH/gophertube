@@ -41,7 +41,7 @@ func Action(ctx context.Context, cmd *cli.Command) error {
 	go func() {
 		<-sigChan
 		fmt.Println()
-		fmt.Println("\033[1;33mExiting...\033[0m")
+		fmt.Println(textMuted.Render("Exiting..."))
 		os.Exit(0)
 	}()
 
