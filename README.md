@@ -66,7 +66,7 @@ GopherTube is a tui based youtube client. It scrapes and parses the youtube webs
 </p>
 
 **Demo Video**  
-Watch the demo video [here](https://github.com/KrishnaSSH/GopherTube/raw/refs/heads/main/.assets/demo.mp4)
+[▶ Watch the demo video](https://github.com/user-attachments/assets/5b1a7f52-c5c3-405c-ae0a-7f113c3978b8)
 
 
 ## Features
