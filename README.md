@@ -61,6 +61,8 @@ GopherTube is a tui based youtube client. It scrapes and parses the youtube webs
   <br><em>main menu</em>
   <img src=".assets/demo2.png" alt="Additional Demo 2" style="width:100%;max-width:900px;min-width:300px;" />
   <br><em>searching for videos</em>
+  <img src=".assets/demo2.png" alt="Additional Demo 2" style="width:100%;max-width:900px;min-width:300px;" />
+  <br><em>video plays in mpv</em>
 </p>
 
 **Demo Video**  
