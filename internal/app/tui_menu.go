@@ -60,7 +60,7 @@ func (m menuListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m menuListModel) View() string {
 	lines := []string{}
 	if m.title != "" {
-		lines = append(lines, uiIndent()+textEmphasis.Render(m.title))
+		lines = append(lines, uiIndent()+textAccent.Render(m.title))
 		lines = append(lines, "")
 	}
 	for i, c := range m.choices {
@@ -68,13 +68,17 @@ func (m menuListModel) View() string {
 		if i == m.cursor {
 			cursor = "> "
 		}
-		lines = append(lines, uiIndent()+textEmphasis.Render(cursor)+textPrimary.Render(c))
+		cStyle := textPrimary
+		if i == m.cursor {
+			cStyle = textEmphasis
+		}
+		lines = append(lines, uiIndent()+textAccent.Render(cursor)+cStyle.Render(c))
 	}
 	if m.help != "" {
 		lines = append(lines, "")
 		lines = append(lines, uiIndent()+textMuted.Render(m.help))
 	}
-	return strings.Join(lines, "\n")
+	return WithMargin(strings.Join(lines, "\n"))
 }
 
 func runMenuTea(title, help string, choices []string) (selected string, back bool, exit bool, err error) {

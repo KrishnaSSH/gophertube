@@ -7,6 +7,7 @@ import (
 	"github.com/urfave/cli-altsrc/v3"
 	toml "github.com/urfave/cli-altsrc/v3/toml"
 	"github.com/urfave/cli/v3"
+	btoml "github.com/BurntSushi/toml"
 )
 
 // Flag names are constant since they are also used as keys to query the data.
@@ -16,6 +17,7 @@ const (
 	FlagSearchLimit   = "search-limit"
 	FlagConfig        = "config"
 	FlagDownloadsPath = "downloads-path"
+	FlagTheme         = "theme"
 
 	defaultConfigPath    = "$HOME/.config/gophertube/gophertube.toml"
 	defaultDownloadsPath = "$HOME/Videos/GopherTube"
@@ -28,14 +30,13 @@ var (
 func Flags() []cli.Flag {
 	var confDir string
 
-	// --help and -version flags are free, no need to set them up :)
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:        FlagConfig,
 			Aliases:     []string{"c"},
 			Sources:     cli.EnvVars("GOPHERTUBE_CONFIG"),
 			Value:       os.ExpandEnv(defaultConfigPath),
-			DefaultText: defaultConfigPath, // otherwise `--help` prints it expanded
+			DefaultText: defaultConfigPath,
 			Destination: &confDir,
 			TakesFile:   true,
 		},
@@ -47,7 +48,7 @@ func Flags() []cli.Flag {
 				toml.TOML("downloads_path", altsrc.NewStringPtrSourcer(&confDir)),
 			),
 			Value:       os.ExpandEnv(defaultDownloadsPath),
-			DefaultText: defaultDownloadsPath, // otherwise `--help` prints it expanded
+			DefaultText: defaultDownloadsPath,
 		},
 		&cli.IntFlag{
 			Name:    FlagSearchLimit,
@@ -65,6 +66,14 @@ func Flags() []cli.Flag {
 			),
 			Value:     "720p",
 			Validator: IsValidQualityFmt,
+		},
+		&cli.StringFlag{
+			Name:    FlagTheme,
+			Aliases: []string{"t"},
+			Sources: cli.NewValueSourceChain(
+				toml.TOML("theme", altsrc.NewStringPtrSourcer(&confDir)),
+			),
+			Value: "Minimal",
 		},
 	}
 }
@@ -86,4 +95,33 @@ func IsValidQualityFmt(s string) error {
 	}
 
 	return nil
+}
+
+type GopherTubeConfig struct {
+	SearchLimit   int    `toml:"search_limit"`
+	Quality       string `toml:"quality"`
+	DownloadsPath string `toml:"downloads_path"`
+	Theme         string `toml:"theme"`
+}
+
+func SaveConfig(cmd *cli.Command) error {
+	confPath := cmd.String(FlagConfig)
+	if confPath == "" {
+		return errors.New("config path not found")
+	}
+
+	config := GopherTubeConfig{
+		SearchLimit:   int(cmd.Int(FlagSearchLimit)),
+		Quality:       cmd.String(FlagQuality),
+		DownloadsPath: cmd.String(FlagDownloadsPath),
+		Theme:         CurrentThemeName(),
+	}
+
+	f, err := os.Create(confPath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return btoml.NewEncoder(f).Encode(config)
 }

@@ -51,16 +51,20 @@ func (m menuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m menuModel) View() string {
-	header := "\n" + uiIndent() + textEmphasis.Render("GopherTube") + " " + textMuted.Render(version) + "\n\n"
+	header := uiIndent() + textStrong.Render("Gopher") + textAccent.Render("Tube") + " " + textMuted.Render(version) + "\n\n"
 	body := ""
 	for i, choice := range m.choices {
 		cursor := "  "
 		if m.cursor == i {
 			cursor = "> "
 		}
-		body += fmt.Sprintf("%s%s%s\n", uiIndent(), textEmphasis.Render(cursor), textPrimary.Render(choice))
+		cStyle := textPrimary
+		if m.cursor == i {
+			cStyle = textEmphasis
+		}
+		body += fmt.Sprintf("%s%s%s\n", uiIndent(), textAccent.Render(cursor), cStyle.Render(choice))
 	}
-	return header + body
+	return WithMargin(header + body)
 }
 
 func stringsJoin(lines []string) string {

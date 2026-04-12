@@ -163,6 +163,7 @@ Create `~/.config/gophertube/gophertube.toml`:
 search_limit = 30
 quality = "1080p"           # default: 1080p (options: 1080p, 720p, 480p, 360p, Audio)
 downloads_path = "/home/$USER/Videos/GopherTube"  # where to save downloads
+theme = "Minimal"                                 # default: Minimal (options: Minimal, Gopher, Gruvbox)
 ```
 
 ### Configuration Options
@@ -172,6 +173,7 @@ downloads_path = "/home/$USER/Videos/GopherTube"  # where to save downloads
 | search_limit     | int    | 30                                        | Max results to fetch per page/load more.     |
 | quality          | string | "1080p"                                   | Preferred quality or `Audio` for audio-only. |
 | downloads_path   | string | "$HOME/Videos/GopherTube"                | Directory to save downloads.                 |
+| theme            | string | "Minimal"                                 | Default application theme.                   |
 
 ---
 

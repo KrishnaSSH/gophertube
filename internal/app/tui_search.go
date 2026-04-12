@@ -94,19 +94,19 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.exit = true
 			return m, tea.Quit
 		case "esc":
-			if m.state == searchStateResults && m.filterOn {
-				break
-			}
 			if m.state == searchStateResults {
+				if m.filterOn {
+					m.filterOn = false
+					m.filter.Blur()
+					return m, nil
+				}
 				m.state = searchStateQuery
 				m.input.SetValue(m.query)
 				m.input.Focus()
 				return m, nil
 			}
-			if m.state == searchStateQuery || m.state == searchStateError {
-				m.back = true
-				return m, tea.Quit
-			}
+			m.back = true
+			return m, tea.Quit
 		}
 	}
 
@@ -175,12 +175,6 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.filterOn = true
 				m.filter.Focus()
 				return m, nil
-			case "esc":
-				if m.filterOn {
-					m.filterOn = false
-					m.filter.Blur()
-					return m, nil
-				}
 			case "tab":
 				m.limit += m.searchLimit
 				m.state = searchStateLoading
@@ -213,13 +207,13 @@ func (m searchModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m searchModel) View() string {
 	switch m.state {
 	case searchStateQuery:
-		return m.frame(withMargin("\n" + m.input.View() + "\n"))
+		return m.frame(WithMargin(m.input.View() + "\n"))
 	case searchStateLoading:
-		return m.frame(withMargin("\n" + uiIndent() + textMuted.Render(m.spin.View()+" Searching...") + "\n"))
+		return m.frame(WithMargin(uiIndent() + textMuted.Render(m.spin.View()+" Searching...") + "\n"))
 	case searchStateResults:
-		return m.frame(withMargin(m.renderResults()))
+		return m.frame(WithMargin(m.renderResults()))
 	case searchStateError:
-		return m.frame(withMargin("\n" + uiIndent() + textError.Render(m.errMsg) + "\n" + uiIndent() + textMuted.Render("Press Enter to search again") + "\n"))
+		return m.frame(WithMargin(uiIndent() + textError.Render(m.errMsg) + "\n" + uiIndent() + textMuted.Render("Press Enter to search again") + "\n"))
 	}
 	return ""
 }
@@ -288,7 +282,11 @@ func (m searchModel) renderResults() string {
 			title = v.URL
 		}
 		title = lipgloss.NewStyle().MaxWidth(max(20, totalW-10)).Render(title)
-		lines = append(lines, fmt.Sprintf("%s%s%s", uiIndent(), textEmphasis.Render(cursor), textPrimary.Render(title)))
+		cStyle := textPrimary
+		if i == m.cursor {
+			cStyle = textStrong
+		}
+		lines = append(lines, fmt.Sprintf("%s%s%s", uiIndent(), textAccent.Render(cursor), cStyle.Render(title)))
 	}
 	right := strings.Join(lines, "\n")
 
@@ -325,11 +323,11 @@ func (m searchModel) renderLeftPane() (string, int) {
 		leftW = 30
 	}
 	lines := []string{
-		uiIndent() + textEmphasis.Render("Details"),
-		uiIndent() + textMuted.Render("Channel: "+v.Author),
-		uiIndent() + textMuted.Render("Duration: "+v.Duration),
-		uiIndent() + textMuted.Render("Published: "+v.Published),
-		uiIndent() + textMuted.Render("Views: "+v.Views),
+		uiIndent() + textAccent.Render("Details"),
+		uiIndent() + textStrong.Render("Channel: ") + textEmphasis.Render(v.Author),
+		uiIndent() + textWarn.Render("Duration: ") + textAccent.Render(v.Duration),
+		uiIndent() + textMuted.Render("Published: ") + textPrimary.Render(v.Published),
+		uiIndent() + textMuted.Render("Views: ") + textPrimary.Render(v.Views),
 	}
 	content := strings.Join(lines, "\n")
 	return content, strings.Count(content, "\n") + 1
@@ -377,10 +375,6 @@ func (m searchModel) filteredIndices() []int {
 		out = append(out, h.idx)
 	}
 	return out
-}
-
-func withMargin(s string) string {
-	return lipgloss.NewStyle().Padding(uiPadTop, uiPadRight, uiPadBottom, 0).Render(s)
 }
 
 func (m searchModel) frame(s string) string {

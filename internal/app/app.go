@@ -4,11 +4,8 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/urfave/cli/v3"
+	"os"
 )
 
 var version = "dev"
@@ -33,15 +30,10 @@ func New() cli.Command {
 // Action is the equivalent of the main except that all flags/configs
 // have already been parsed and sanitized.
 func Action(ctx context.Context, cmd *cli.Command) error {
-	// Handle Ctrl+C gracefully
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		fmt.Println()
-		fmt.Println(textMuted.Render("Exiting..."))
-		os.Exit(0)
-	}()
+	// Apply theme from config/flags
+	ApplyTheme(cmd.String(FlagTheme))
+
+	defer ShowCursor()
 
 	for {
 		choice, exit, err := runMainMenuTea()
@@ -55,11 +47,17 @@ func Action(ctx context.Context, cmd *cli.Command) error {
 
 		switch choice {
 		case "Search YouTube":
-			gophertubeYouTubeMode(cmd)
+			if gophertubeYouTubeMode(cmd) {
+				return nil
+			}
 		case "Search Downloads":
-			gophertubeDownloadsMode(cmd)
+			if gophertubeDownloadsMode(cmd) {
+				return nil
+			}
 		case "Settings":
-			gophertubeSettingsMode(cmd)
+			if gophertubeSettingsMode(cmd) {
+				return nil
+			}
 		default:
 			// Unknown/empty selection: continue loop and ask again
 			continue

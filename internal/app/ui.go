@@ -32,6 +32,10 @@ func uiIndent() string {
 	return strings.Repeat(" ", uiPadLeft)
 }
 
+func WithMargin(s string) string {
+	return lipgloss.NewStyle().Padding(uiPadTop, uiPadRight, uiPadBottom, 0).Render(s)
+}
+
 const (
 	escClearScreen = "\033[2J\033[H"
 	escHideCursor  = "\033[?25l"
@@ -65,13 +69,18 @@ type Theme struct {
 var (
 	themes = []Theme{
 		{Name: "Minimal", Monochrome: true},
-		{Name: "Graphite", Primary: "#D0D0D0", Muted: "#8A8A8A", Emphasis: "#E6E6E6", Strong: "#FFFFFF", Accent: "#CFCFCF", Warn: "#C2C2C2", Error: "#B0B0B0"},
+		{Name: "Tokyo Night", Primary: "#C0CAF5", Muted: "#565F89", Emphasis: "#7DCFFF", Strong: "#BB9AF7", Accent: "#7AA2F7", Warn: "#E0AF68", Error: "#F7768E"},
+		{Name: "Cyberpunk", Primary: "#F3E600", Muted: "#666666", Emphasis: "#FF00FF", Strong: "#00FF00", Accent: "#00EAD3", Warn: "#FF8C00", Error: "#FF0000"},
+		{Name: "Synthwave", Primary: "#FF7EDB", Muted: "#241734", Emphasis: "#2DE2E6", Strong: "#FFD23F", Accent: "#B624FF", Warn: "#F97316", Error: "#FF0000"},
+		{Name: "Catppuccin", Primary: "#CDD6F4", Muted: "#6C7086", Emphasis: "#89B4FA", Strong: "#F5E0DC", Accent: "#CBA6F7", Warn: "#F9E2AF", Error: "#F38BA8"},
+		{Name: "Dracula", Primary: "#F8F8F2", Muted: "#6272A4", Emphasis: "#BD93F9", Strong: "#8BE9FD", Accent: "#FF79C6", Warn: "#F1FA8C", Error: "#FF5555"},
+		{Name: "Aura", Primary: "#EDECEE", Muted: "#6D6D6D", Emphasis: "#61FFCA", Strong: "#FFB86C", Accent: "#A277FF", Warn: "#F1FA8C", Error: "#FF6767"},
 		{Name: "Ocean", Primary: "#CDE7F7", Muted: "#6D8CA1", Emphasis: "#8CC9F0", Strong: "#E8F5FF", Accent: "#5FB3D7", Warn: "#9CC6DA", Error: "#7AA0B5"},
 		{Name: "Amber", Primary: "#F5E6C8", Muted: "#B49463", Emphasis: "#F2C37E", Strong: "#FFE7B5", Accent: "#E0A458", Warn: "#D8B47A", Error: "#C1884B"},
 		{Name: "Forest", Primary: "#DCE9D1", Muted: "#7D9A79", Emphasis: "#9FD19A", Strong: "#EAF5E0", Accent: "#76B28C", Warn: "#A7C4A0", Error: "#7FA383"},
 		{Name: "Rose", Primary: "#F1D6DD", Muted: "#A47D87", Emphasis: "#E6A9B5", Strong: "#FFE6EC", Accent: "#D88A9A", Warn: "#C99AA5", Error: "#B97786"},
 		{Name: "Nord", Primary: "#E5E9F0", Muted: "#81A1C1", Emphasis: "#88C0D0", Strong: "#ECEFF4", Accent: "#8FBCBB", Warn: "#D8DEE9", Error: "#BF616A"},
-		{Name: "Gruv", Primary: "#EBDBB2", Muted: "#A89984", Emphasis: "#D5C4A1", Strong: "#FBF1C7", Accent: "#BDAE93", Warn: "#D8A657", Error: "#FB4934"},
+		{Name: "Gruvbox", Primary: "#EBDBB2", Muted: "#928374", Emphasis: "#FABD2F", Strong: "#FBF1C7", Accent: "#D3869B", Warn: "#FE8019", Error: "#FB4934"},
 		{Name: "Mono", Monochrome: true},
 	}
 	currentThemeName = "Minimal"

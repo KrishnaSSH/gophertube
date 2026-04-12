@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/urfave/cli/v3"
 )
 
@@ -87,43 +86,7 @@ func checkAvailablePlayer() *MediaPlayer {
 	return nil
 }
 
-// playWithPlayer plays media using the detected player.
-func playWithPlayer(player *MediaPlayer, url string, isAudioOnly bool) error {
-	var args []string
-
-	if isAudioOnly {
-		args = []string{"--no-video"}
-	}
-
-	args = append(args, "--input-terminal=yes", "--no-terminal", "--msg-level=all=no")
-	args = append(args, url)
-
-	cmd := exec.Command(player.Path, args...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
-}
-
-func renderNowPlaying(title, channel, duration, published, prefix string) string {
-	lines := []string{
-		uiIndent() + textEmphasis.Render(prefix+title),
-		uiIndent() + textMuted.Render("Channel: "+channel),
-		uiIndent() + textMuted.Render("Duration: "+duration),
-		uiIndent() + textMuted.Render("Published: "+published),
-		uiIndent() + textEmphasis.Render(dividerLine),
-		uiIndent() + textMuted.Render("Esc to back • Ctrl+C to exit"),
-	}
-	const playbackPadBottom = 3
-	for i := 0; i < playbackPadBottom; i++ {
-		lines = append(lines, "")
-	}
-	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
-	return lipgloss.NewStyle().Padding(uiPadTop, 0, uiPadBottom, 0).Render(content)
-}
-
-func gophertubeYouTubeMode(cmd *cli.Command) {
+func gophertubeYouTubeMode(cmd *cli.Command) bool {
 	var lastQuery string
 	var lastVideos []types.Video
 	var lastCursor int
@@ -141,10 +104,10 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			query, videos, selected, back, exit, err = runSearchTea(cmd.Int(FlagSearchLimit))
 		}
 		if err != nil || exit {
-			return
+			return exit
 		}
-		if back || selected < 0 || selected >= len(videos) {
-			return
+		if back || selected < 0 {
+			return false
 		}
 		lastQuery = query
 		lastVideos = videos
@@ -154,10 +117,10 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 		menu := []string{"Watch", "Download", "Listen"}
 		choice, back, exit, errAct := runMenuTea("Action", "Esc to back • Ctrl+C to exit", menu)
 		if errAct != nil {
-			return
+			return false
 		}
 		if exit {
-			return
+			return true
 		}
 		if back || choice == "" {
 			continue
@@ -167,10 +130,10 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			qualities := []string{"1080p", "720p", "480p", "360p", "Audio"}
 			selectedQ, backQ, exitQ, errQ := runMenuTea("Quality", "Esc to back • Ctrl+C to exit", qualities)
 			if errQ != nil {
-				return
+				return false
 			}
 			if exitQ {
-				return
+				return true
 			}
 			if backQ || selectedQ == "" {
 				continue
@@ -228,11 +191,6 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 				continue // Go back to the results
 			}
 
-			HideCursor()
-			defer ShowCursor()
-			ClearScreen()
-			fmt.Print(renderNowPlaying(videos[selected].Title, videos[selected].Author, videos[selected].Duration, videos[selected].Published, "Playing Audio: "))
-
 			// Extract direct audio stream URL
 			audioCmd := exec.Command("yt-dlp", "-f", "bestaudio[ext=m4a]/bestaudio", "-g", videos[selected].URL)
 			streamURLBytes, err := audioCmd.Output()
@@ -245,21 +203,18 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			}
 			streamURL := strings.TrimSpace(string(streamURLBytes))
 
-			if err := playWithPlayer(player, streamURL, true); err != nil {
-				fmt.Printf("%s%s\n", uiIndent(), textError.Render(fmt.Sprintf("Failed to play audio with %s.", player.Name)))
+			args := []string{"--no-video", "--input-terminal=yes", "--no-terminal", "--msg-level=all=no", streamURL}
+			exit, back, _ = runPlaybackTea(videos[selected].Title, videos[selected].Author, videos[selected].Duration, videos[selected].Published, "Playing Audio: ", args)
+			if exit {
+				return true
 			}
-
-			fmt.Println(uiIndent() + textMuted.Render("Press Enter to return."))
-			os.Stdin.Read(make([]byte, 1))
+			if back {
+				continue
+			}
 			continue // Return to the results
 		}
 
 		// Watch as before
-		HideCursor()
-		defer ShowCursor()
-		ClearScreen()
-		fmt.Print(renderNowPlaying(videos[selected].Title, videos[selected].Author, videos[selected].Duration, videos[selected].Published, "Playing: "))
-		mpvPath := "mpv"
 		quality := cmd.String(FlagQuality)
 		var mpvArgs []string
 
@@ -275,68 +230,76 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 		}
 
 		mpvArgs = append(mpvArgs, videos[selected].URL)
-		cmd := exec.Command(mpvPath, mpvArgs...)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Run()
+		exit, back, _ = runPlaybackTea(videos[selected].Title, videos[selected].Author, videos[selected].Duration, videos[selected].Published, "Playing: ", mpvArgs)
+		if exit {
+			return true
+		}
+		if back {
+			continue
+		}
 		continue
 	}
 }
 
-func gophertubeDownloadsMode(cmd *cli.Command) {
+func gophertubeDownloadsMode(cmd *cli.Command) bool {
 	dlPath := expandPath(cmd.String(FlagDownloadsPath))
-	files, err := os.ReadDir(dlPath)
-	if err != nil || len(files) == 0 {
-		fmt.Println(uiIndent() + textMuted.Render("No downloaded videos found."))
-		time.Sleep(600 * time.Millisecond)
-		return
-	}
-	var videoFiles []string
-	for _, f := range files {
-		if !f.IsDir() && (strings.HasSuffix(f.Name(), ".mp4") || strings.HasSuffix(f.Name(), ".mkv") || strings.HasSuffix(f.Name(), ".webm") || strings.HasSuffix(f.Name(), ".avi") || strings.HasSuffix(f.Name(), ".m4a") || strings.HasSuffix(f.Name(), ".mp3") || strings.HasSuffix(f.Name(), ".opus")) {
-			videoFiles = append(videoFiles, f.Name())
+	for {
+		files, err := os.ReadDir(dlPath)
+		if err != nil || len(files) == 0 {
+			fmt.Println(uiIndent() + textMuted.Render("No downloaded videos found."))
+			time.Sleep(600 * time.Millisecond)
+			return false
+		}
+		var videoFiles []string
+		for _, f := range files {
+			if !f.IsDir() && (strings.HasSuffix(f.Name(), ".mp4") || strings.HasSuffix(f.Name(), ".mkv") || strings.HasSuffix(f.Name(), ".webm") || strings.HasSuffix(f.Name(), ".avi") || strings.HasSuffix(f.Name(), ".m4a") || strings.HasSuffix(f.Name(), ".mp3") || strings.HasSuffix(f.Name(), ".opus")) {
+				videoFiles = append(videoFiles, f.Name())
+			}
+		}
+		if len(videoFiles) == 0 {
+			fmt.Println(uiIndent() + textMuted.Render("No downloaded videos found."))
+			time.Sleep(600 * time.Millisecond)
+			return false
+		}
+		selected, back, exit, err := runMenuTea("Downloads", "Esc to back • Ctrl+C to exit", videoFiles)
+		if err != nil || exit {
+			return exit
+		}
+		if back || selected == "" {
+			return false
+		}
+		filePath := filepath.Join(dlPath, selected)
+		mpvArgs := []string{"--fs", "--input-terminal=yes", "--no-terminal", "--msg-level=all=no", filePath}
+		exit, back, _ = runPlaybackTea(selected, "", "", "", "Playing: ", mpvArgs)
+		if exit {
+			return true
+		}
+		if back {
+			continue
 		}
 	}
-	if len(videoFiles) == 0 {
-		fmt.Println(uiIndent() + textMuted.Render("No downloaded videos found."))
-		time.Sleep(600 * time.Millisecond)
-		return
-	}
-	selected, back, exit, err := runMenuTea("Downloads", "Esc to back • Ctrl+C to exit", videoFiles)
-	if err != nil || exit {
-		return
-	}
-	if back || selected == "" {
-		return
-	}
-	filePath := filepath.Join(dlPath, selected)
-	fmt.Printf("%s%s\n", uiIndent(), textEmphasis.Render("Playing: "+selected))
-	fmt.Println()
-	fmt.Println(uiIndent() + textEmphasis.Render(dividerLine))
-	fmt.Println()
-	mpvPath := "mpv"
-	exec.Command(mpvPath, filePath).Run()
 }
 
-func gophertubeSettingsMode(cmd *cli.Command) {
+func gophertubeSettingsMode(cmd *cli.Command) bool {
 	themes := ThemeNames()
 	if len(themes) == 0 {
 		fmt.Println(uiIndent() + textMuted.Render("No themes available."))
 		time.Sleep(600 * time.Millisecond)
-		return
+		return false
 	}
 	prompt := "Theme (" + CurrentThemeName() + ")"
 	selected, back, exit, err := runMenuTea(prompt, "Esc to back • Ctrl+C to exit", themes)
 	if err != nil || exit {
-		return
+		return exit
 	}
 	if back || selected == "" {
-		return
+		return false
 	}
 	if ApplyTheme(selected) {
+		SaveConfig(cmd)
 		fmt.Print("\r\033[2K    " + textEmphasis.Render("Theme set to "+selected))
 		time.Sleep(600 * time.Millisecond)
 		fmt.Print("\r\033[2K")
 	}
+	return false
 }

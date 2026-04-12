@@ -8,3 +8,5 @@ search_limit = 30
 quality = "1080p" 
 # Path to save downloaded videos (e.g. /home/user/Videos/GopherTube)
 downloads_path = "/home/$USER/Videos/GopherTube" 
+# Default theme (e.g. Minimal, Gopher, Gruvbox)
+theme = "Minimal"
