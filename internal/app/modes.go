@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/urfave/cli/v3"
 )
 
@@ -100,13 +101,32 @@ func playWithPlayer(player *MediaPlayer, url string, isAudioOnly bool) error {
 		args = []string{"--no-video"}
 	}
 
+	args = append(args, "--input-terminal=yes", "--no-terminal", "--msg-level=all=no")
 	args = append(args, url)
 
 	cmd := exec.Command(player.Path, args...)
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
 	return cmd.Run()
+}
+
+func renderNowPlaying(title, channel, duration, published, prefix string) string {
+	lines := []string{
+		"    " + textEmphasis.Render(prefix+title),
+		"    " + textMuted.Render("Channel: "+channel),
+		"    " + textMuted.Render("Duration: "+duration),
+		"    " + textMuted.Render("Published: "+published),
+		"    " + textEmphasis.Render(dividerLine),
+		"    " + textMuted.Render("Esc to back • Ctrl+C to exit"),
+	}
+	const playbackPadBottom = 3
+	for i := 0; i < playbackPadBottom; i++ {
+		lines = append(lines, "")
+	}
+	content := lipgloss.JoinVertical(lipgloss.Left, lines...)
+	return lipgloss.NewStyle().Padding(1, 0, 1, 0).Render(content)
 }
 
 func gophertubeYouTubeMode(cmd *cli.Command) {
@@ -242,14 +262,10 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 					continue // Go back to the search results
 				}
 
-				fmt.Printf("    %s\n", textEmphasis.Render(fmt.Sprintf("Playing Audio with %s: %s", strings.ToUpper(player.Name), videos[selected].Title)))
-				fmt.Printf("    %s\n", textMuted.Render("Channel: "+videos[selected].Author))
-				fmt.Printf("    %s\n", textMuted.Render("Duration: "+videos[selected].Duration))
-				fmt.Printf("    %s\n", textMuted.Render("Published: "+videos[selected].Published))
-				fmt.Println("    " + textEmphasis.Render(dividerLine))
-				fmt.Println("    " + textMuted.Render("Controls: 'q' to quit, SPACE to pause/resume, ←→ to seek"))
-				fmt.Println("    " + textEmphasis.Render(dividerLine))
-				fmt.Println()
+				HideCursor()
+				defer ShowCursor()
+				ClearScreen()
+				fmt.Print(renderNowPlaying(videos[selected].Title, videos[selected].Author, videos[selected].Duration, videos[selected].Published, "Playing Audio: "))
 
 				// Extract direct audio stream URL
 				audioCmd := exec.Command("yt-dlp", "-f", "bestaudio[ext=m4a]/bestaudio", "-g", videos[selected].URL)
@@ -273,19 +289,16 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			}
 
 			// Watch as before
-			fmt.Printf("    %s\n", textEmphasis.Render("Playing: "+videos[selected].Title))
-			fmt.Printf("    %s\n", textMuted.Render("Channel: "+videos[selected].Author))
-			fmt.Printf("    %s\n", textMuted.Render("Duration: "+videos[selected].Duration))
-			fmt.Printf("    %s\n", textMuted.Render("Published: "+videos[selected].Published))
-			fmt.Println()
-			fmt.Println("    " + textEmphasis.Render(dividerLine))
-			fmt.Println()
+			HideCursor()
+			defer ShowCursor()
+			ClearScreen()
+			fmt.Print(renderNowPlaying(videos[selected].Title, videos[selected].Author, videos[selected].Duration, videos[selected].Published, "Playing: "))
 			mpvPath := "mpv"
 			quality := cmd.String(FlagQuality)
 			var mpvArgs []string
 
 			// Add the fullscreen flag for video playback
-			mpvArgs = append(mpvArgs, "--fs")
+			mpvArgs = append(mpvArgs, "--fs", "--input-terminal=yes", "--no-terminal", "--msg-level=all=no")
 
 			if quality != "" {
 				f := qualityToFormat(quality)
@@ -296,7 +309,11 @@ func gophertubeYouTubeMode(cmd *cli.Command) {
 			}
 
 			mpvArgs = append(mpvArgs, videos[selected].URL)
-			exec.Command(mpvPath, mpvArgs...).Run()
+			cmd := exec.Command(mpvPath, mpvArgs...)
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Run()
 			continue
 		}
 	}
@@ -336,4 +353,29 @@ func gophertubeDownloadsMode(cmd *cli.Command) {
 	fmt.Println()
 	mpvPath := "mpv"
 	exec.Command(mpvPath, filePath).Run()
+}
+
+func gophertubeSettingsMode(cmd *cli.Command) {
+	themes := ThemeNames()
+	if len(themes) == 0 {
+		fmt.Println("    " + textMuted.Render("No themes available."))
+		time.Sleep(600 * time.Millisecond)
+		return
+	}
+	prompt := "Theme (" + CurrentThemeName() + "): "
+	action := exec.Command("fzf", "--prompt="+prompt)
+	action.Stdin = strings.NewReader(strings.Join(themes, "\n"))
+	out, err := action.Output()
+	if err != nil {
+		return
+	}
+	selected := strings.TrimSpace(string(out))
+	if selected == "" {
+		return
+	}
+	if ApplyTheme(selected) {
+		fmt.Print("\r\033[2K    " + textEmphasis.Render("Theme set to "+selected))
+		time.Sleep(600 * time.Millisecond)
+		fmt.Print("\r\033[2K")
+	}
 }

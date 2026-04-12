@@ -144,51 +144,35 @@ func printSearchTips() {
 
 func readQuery() (string, bool) {
 	printBanner()
-	fmt.Print("    " + textEmphasis.Render(">") + " ")
-
-	// Use raw terminal mode for proper key detection
-	oldState, err := readline.MakeRaw(int(os.Stdin.Fd()))
+	escPressed := false
+	rl, err := readline.NewEx(&readline.Config{
+		Prompt: "    " + textEmphasis.Render("> "),
+		FuncFilterInputRune: func(r rune) (rune, bool) {
+			if r == readline.CharEsc {
+				escPressed = true
+				return readline.CharInterrupt, true
+			}
+			escPressed = false
+			return r, true
+		},
+	})
 	if err != nil {
 		return "", false
 	}
-	defer readline.Restore(int(os.Stdin.Fd()), oldState)
+	defer rl.Close()
 
-	var query []rune
-	buf := make([]byte, 4)
-
-	for {
-		n, err := os.Stdin.Read(buf)
-		if err != nil || n == 0 {
-			break
-		}
-
-		// Handle escape sequences
-		if buf[0] == 27 {
-			if n == 1 {
-				// Just Escape key pressed
-				return "", true
-			}
-			continue
-		}
-
-		// Handle special keys
-		if buf[0] == 13 { // Enter
-			fmt.Println()
-			break
-		}
-		if buf[0] == 3 { // Ctrl+C
+	line, err := rl.Readline()
+	if err == readline.ErrInterrupt {
+		if escPressed {
 			return "", true
 		}
-		if buf[0] == 127 && len(query) > 0 { // Backspace
-			query = query[:len(query)-1]
-			fmt.Print("\033[D \033[D")
-		} else if buf[0] >= 32 && buf[0] < 127 { // Printable characters
-			query = append(query, rune(buf[0]))
-			fmt.Printf("%c", buf[0])
-		}
+		os.Exit(0)
+	}
+	if err != nil {
+		return "", true
 	}
 
-	return string(query), false
+	return strings.TrimSpace(line), false
 }
 
 func runFzf(videos []types.Video, searchLimit int, query string) int {

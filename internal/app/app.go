@@ -46,7 +46,7 @@ func Action(ctx context.Context, cmd *cli.Command) error {
 	}()
 
 	for {
-		mainMenu := []string{"Search YouTube", "Search Downloads"}
+		mainMenu := []string{"Search YouTube", "Search Downloads", "Settings"}
 
 		// Check if fzf is installed
 		path, err := exec.LookPath("fzf")
@@ -73,6 +73,8 @@ func Action(ctx context.Context, cmd *cli.Command) error {
 			gophertubeYouTubeMode(cmd)
 		case "Search Downloads":
 			gophertubeDownloadsMode(cmd)
+		case "Settings":
+			gophertubeSettingsMode(cmd)
 		default:
 			// Unknown/empty selection: continue loop and ask again
 			continue
