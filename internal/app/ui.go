@@ -2,6 +2,7 @@ package app
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -19,6 +20,17 @@ var (
 
 // Decorative divider reused in sections.
 const dividerLine = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+const (
+	uiPadTop    = 1
+	uiPadBottom = 0
+	uiPadLeft   = 4
+	uiPadRight  = 0
+)
+
+func uiIndent() string {
+	return strings.Repeat(" ", uiPadLeft)
+}
 
 const (
 	escClearScreen = "\033[2J\033[H"
@@ -109,14 +121,4 @@ func init() {
 	ApplyTheme(currentThemeName)
 }
 
-// fzf default UI options
-const (
-	fzfBorder      = "rounded"
-	fzfMargin      = "1,1"
-	fzfPreviewWrap = "wrap"
-	// Thumbnail size ratios relative to preview area
-	previewWidthNum  = 9
-	previewWidthDen  = 10
-	previewHeightNum = 3
-	previewHeightDen = 5
-)
+// (fzf constants removed)

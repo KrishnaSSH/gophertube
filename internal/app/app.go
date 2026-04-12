@@ -5,9 +5,7 @@ import (
 	_ "embed"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
-	"strings"
 	"syscall"
 
 	"github.com/urfave/cli/v3"
@@ -46,25 +44,12 @@ func Action(ctx context.Context, cmd *cli.Command) error {
 	}()
 
 	for {
-		mainMenu := []string{"Search YouTube", "Search Downloads", "Settings"}
-
-		// Check if fzf is installed
-		path, err := exec.LookPath("fzf")
+		choice, exit, err := runMainMenuTea()
 		if err != nil {
-			fmt.Fprintln(os.Stderr, "fzf not found. Please install fzf and ensure it is on PATH.")
+			fmt.Fprintln(os.Stderr, "menu error:", err)
 			return nil
 		}
-		var choice string
-		action := exec.CommandContext(ctx, path, "--prompt=Select mode: ")
-		action.Stdin = strings.NewReader(strings.Join(mainMenu, "\n"))
-		out, err := action.Output()
-		if err != nil {
-			// ESC/cancel or fzf error: exit app
-			return nil
-		}
-		choice = strings.TrimSpace(string(out))
-		if choice == "" {
-			// Empty selection (e.g., ESC): exit app
+		if exit {
 			return nil
 		}
 
