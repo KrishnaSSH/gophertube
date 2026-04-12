@@ -4,22 +4,6 @@
 
 # GopherTube
 
-### 🚧 Development Paused
-
-[![status](https://img.shields.io/badge/status-paused-yellow)](../../)
-[![focus](https://img.shields.io/badge/focus-exams-blue)](../../)
-[![return](https://img.shields.io/badge/return-soon-success)](../../)
-
-Hey there 👋  
-This project is currently **on hold** while I focus on my **exams**.  
-Development will **resume soon**
-
-Thanks for your patience!
-
-~ **@krishnassh**
-
-
-
 [![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org/dl/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
 [![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-lightgrey?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube)
