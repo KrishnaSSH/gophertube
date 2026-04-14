@@ -1,30 +1,17 @@
 <div align="left">
-  <img src=".assets/logo.png" alt="GopherTube Logo" width="300" />
+  <img src=".assets/logo.png" alt="GopherTube Logo" width="200" />
 </div>
 
 # GopherTube
+[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://golang.org/dl/)
+[![License](https://img.shields.io/badge/License-GPLv3-blue)](https://www.gnu.org/licenses/gpl-3.0)
+[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-lightgrey)](https://github.com/KrishnaSSH/GopherTube)
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=for-the-badge&logo=go&logoColor=white)](https://golang.org/dl/)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS-lightgrey?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube)
-[![Last Commit](https://img.shields.io/github/last-commit/KrishnaSSH/GopherTube?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/commits/main)
-[![Contributors](https://img.shields.io/github/contributors/KrishnaSSH/GopherTube?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/graphs/contributors)
-[![Code Size](https://img.shields.io/github/languages/code-size/KrishnaSSH/GopherTube?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube)
-[![Issues](https://img.shields.io/github/issues/KrishnaSSH/GopherTube?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/issues)
-[![PRs](https://img.shields.io/github/issues-pr/KrishnaSSH/GopherTube?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/pulls)
-[![Stars](https://img.shields.io/github/stars/KrishnaSSH/GopherTube?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/stargazers)
+[![Release](https://img.shields.io/github/v/release/KrishnaSSH/GopherTube)](https://github.com/KrishnaSSH/GopherTube/releases)
+[![Downloads](https://img.shields.io/github/downloads/KrishnaSSH/GopherTube/total)](https://github.com/KrishnaSSH/GopherTube/releases)
+[![Stars](https://img.shields.io/github/stars/KrishnaSSH/GopherTube)](https://github.com/KrishnaSSH/GopherTube/stargazers)
 
-[![Release](https://img.shields.io/github/v/release/KrishnaSSH/GopherTube?display_name=tag&sort=semver&style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/releases)
-[![Downloads](https://img.shields.io/github/downloads/KrishnaSSH/GopherTube/total?style=for-the-badge)](https://github.com/KrishnaSSH/GopherTube/releases)
-[![Go Report Card](https://goreportcard.com/badge/github.com/KrishnaSSH/GopherTube?style=for-the-badge)](https://goreportcard.com/report/github.com/KrishnaSSH/GopherTube)
-[![AUR](https://img.shields.io/aur/version/gophertube?style=for-the-badge&label=AUR)](https://aur.archlinux.org/packages/gophertube)
-
-<!-- Discord Button -->
-<p align="left">
-  <a href="https://discord.gg/TqYvzbGJzb" target="_blank">
-    <img src="https://invidget.switchblade.xyz/TqYvzbGJzb" alt="Join our Discord" />
-  </a>
-</p>
+[![Discord](https://img.shields.io/discord/1234567890?logo=discord&label=Discord)](https://discord.gg/TqYvzbGJzb)
 
 A simple terminal YouTube client for searching and watching videos using [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [mpv](https://mpv.io/).
 
@@ -44,8 +31,6 @@ A simple terminal YouTube client for searching and watching videos using [yt-dlp
   - [Keyboard Shortcuts](#keyboard-shortcuts)
 - [Configuration](#configuration)
   - [Configuration Options](#configuration-options)
-- [Troubleshooting](#troubleshooting)
-- [FAQ](#faq)
 - [Roadmap](#roadmap)
 - [Star History](#star-history)
 - [Contributing](#contributing)
@@ -92,47 +77,41 @@ GopherTube is a tui based youtube client. It scrapes and parses the youtube webs
 - [chafa](https://hpjansson.org/chafa/) (terminal image preview)
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) (YouTube downloader)
 
-Install dependencies:
 
-```bash
-# Ubuntu/Debian
-sudo apt install mpv chafa
-pip install -U yt-dlp
 
-# macOS
-brew install mpv chafa yt-dlp
-
-# Arch Linux (Aur is having shasum issues install it from the script)
-
-yay -S gophertube
-or 
-yay -S gophertube-bin # for direct binary downloads
-```
 
 ---
 
 ## Installation
 
-**Quick Install (One-liner):**
+This assumes you have mpv and yt-dlp installed in your system. if not refer to this to install them first. 
+
+[mpv installation](https://mpv.io/installation/)
+[yt-dlp installation](https://github.com/yt-dlp/yt-dlp/wiki/Installation)
+
+## One liner:
 ```bash
 curl -sSL https://raw.githubusercontent.com/KrishnaSSH/GopherTube/main/install.sh | bash
 ```
 
-**Manual Installation:**
-```bash
-git clone https://github.com/KrishnaSSH/GopherTube.git
-cd GopherTube
-go build -o gophertube
-./gophertube
+## Arch linux
+``` bash
+yay -S gophertube
 ```
+```bash
+yay -S gophertube-bin 
+```
+
+* the binary version of this package is not maintained by me contact the maintainer for issues
+
 ---
 
 ## Usage
 
 - Start the app: `gophertube`
 - Select between Search Youtube, Search Downloads, Settings, Quit. and press enter.
-- Use ↑/↓ or j/k to move, Enter to play, Tab to load more, Esc to go back to search
-- mpv opens to play the selected video
+- Use up down keys or j/k to move, Enter to play, Tab to load more, Esc to go back and ctrl-c to close
+- search something and mpv opens to play selected video.
 
 
 ---
@@ -159,21 +138,11 @@ theme = "Minimal"                                 # default: Minimal (options: M
 
 ---
 
-## Troubleshooting
 
-- __mpv not launching__: verify mpv is installed and accessible from terminal.
-- __No thumbnails__: ensure `chafa` is installed; some terminals may not support images.
-- __yt-dlp errors__: update yt-dlp to the latest version.
 
-## FAQ
-
-- __Does this use the YouTube API?__ No, it scrapes the website. API key is not required.
-- __Can I play audio only?__ Yes. Choose "Listen" or set quality to `Audio`.
-- __Where are files downloaded?__ See `downloads_path` in config.
 
 ## Roadmap
 
-- Configurable keybindings
 - thumbnail support in the bubbletea rewrite
 
 ## Star History
