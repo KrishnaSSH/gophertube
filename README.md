@@ -11,7 +11,11 @@
 [![Downloads](https://img.shields.io/github/downloads/KrishnaSSH/GopherTube/total)](https://github.com/KrishnaSSH/GopherTube/releases)
 [![Stars](https://img.shields.io/github/stars/KrishnaSSH/GopherTube)](https://github.com/KrishnaSSH/GopherTube/stargazers)
 
-[![Discord](https://img.shields.io/discord/1234567890?logo=discord&label=Discord)](https://discord.gg/TqYvzbGJzb)
+<p align="left">
+  <a href="https://discord.gg/TqYvzbGJzb">
+    <img src="https://img.shields.io/badge/Join%20Discord-Click%20Here-5865F2?logo=discord" />
+  </a>
+</p>
 
 A simple terminal YouTube client for searching and watching videos using [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [mpv](https://mpv.io/).
 
