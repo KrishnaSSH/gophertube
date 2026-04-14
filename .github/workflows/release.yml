@@ -1,72 +1,98 @@
-name: Release Packages
+name: release
 
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 permissions:
   contents: write
 
 jobs:
-  build-and-package:
+  build:
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+          - goos: windows
+            goarch: arm64
+          - goos: windows
+            goarch: 386
+
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: linux
+            goarch: arm
+          - goos: linux
+            goarch: 386
+
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
-          go-version: '1.21'
+          go-version: stable
+          cache: true
 
-      - name: Set version variable (strip v prefix)
-        id: vars
-        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
-
-      - name: Build binary (linux amd64)
+      - name: build binaries
+        shell: bash
         run: |
-          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev")
-          go build -ldflags "-X main.version=$VERSION" -o gophertube main.go
+          mkdir -p dist
 
-      - name: Install packaging tools
+          VERSION="${GITHUB_REF_NAME}"
+
+          EXT=""
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            EXT=".exe"
+          fi
+
+          OUTPUT="dist/gophertube-${{ matrix.goos }}-${{ matrix.goarch }}-${VERSION}${EXT}"
+
+          echo "Building GopherTube with version: $VERSION"
+
+          CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+          go build -ldflags "-X gophertube/internal/app.version=${VERSION}" \
+          -o "$OUTPUT" main.go
+
+      - name: upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gophertube-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: final
+          merge-multiple: true
+
+      - name: Generate SHA256 checksums
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ruby ruby-dev build-essential
-          sudo gem install --no-document fpm
+          cd final
+          sha256sum ./* > checksums.txt
 
-      - name: Create .deb package
-        run: |
-          mkdir -p pkg-deb/usr/local/bin
-          cp gophertube pkg-deb/usr/local/bin/
-          fpm -s dir -t deb -n gophertube -v "$VERSION" \
-            --description "Terminal YouTube client written in Go" \
-            --maintainer "KrishnaSSH <krishna.pytech@gmail.com>" \
-            -C pkg-deb .
-          mv gophertube*.deb gophertube-${VERSION}-amd64.deb
-
-      - name: Create .rpm package
-        run: |
-          mkdir -p pkg-rpm/usr/local/bin
-          cp gophertube pkg-rpm/usr/local/bin/
-          fpm -s dir -t rpm -n gophertube -v "$VERSION" \
-            --description "Terminal YouTube client written in Go" \
-            --maintainer "KrishnaSSH <krishna.pytech@gmail.com>" \
-            -C pkg-rpm .
-          mv gophertube*.rpm gophertube-${VERSION}-amd64.rpm
-
-      - name: Upload .deb package
+      - name: create github release and upload assets
         uses: softprops/action-gh-release@v2
         with:
-          files: gophertube-${{ env.VERSION }}-amd64.deb
-          update_existing: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload .rpm package
-        uses: softprops/action-gh-release@v2
-        with:
-          files: gophertube-${{ env.VERSION }}-amd64.rpm
-          update_existing: true
+          tag_name: ${{ github.ref_name }}
+          files: |
+            final/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
