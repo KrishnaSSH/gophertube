@@ -82,7 +82,12 @@ jobs:
   aur-publish:
     needs: release
     runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
     steps:
+      - name: install dependencies
+        run: pacman -Syu --noconfirm git openssh curl base-devel
+
       - uses: actions/checkout@v4
 
       - name: get version
@@ -121,7 +126,7 @@ jobs:
           makepkg --printsrcinfo > .SRCINFO
 
       - name: publish gophertube to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
         with:
           pkgname: gophertube
           pkgbuild: aur/gophertube/PKGBUILD
@@ -132,7 +137,7 @@ jobs:
           commit_message: "update to v${{ env.VERSION }}"
 
       - name: publish gophertube-bin to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        uses: KSXGitHub/github-actions-deploy-aur@v2.7.2
         with:
           pkgname: gophertube-bin
           pkgbuild: aur/gophertube-bin/PKGBUILD
@@ -149,6 +154,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GH_PAT }}
+          ref: main
 
       - name: install nix
         uses: cachix/install-nix-action@v27
