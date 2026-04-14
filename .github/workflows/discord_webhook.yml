@@ -1,0 +1,142 @@
+name: discord webhook notification
+
+on:
+  push:
+  watch:
+    types: [started]
+  fork:
+  issues:
+    types: [opened, edited, closed, reopened]
+  pull_request:
+    types: [opened, closed, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Send Discord embed
+        run: |
+          EVENT="${{ github.event_name }}"
+          REPO="${{ github.repository }}"
+          ACTOR="${{ github.actor }}"
+          BRANCH="${{ github.ref_name }}"
+
+          REPO_URL="https://github.com/$REPO"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          TITLE="GitHub Event"
+          URL="$REPO_URL"
+          DESC="Repository activity detected"
+          FIELDS="[]"
+
+          if [ "$EVENT" = "push" ]; then
+            TITLE="New Push to $BRANCH"
+            URL="$REPO_URL/commits/$BRANCH"
+
+            COMMIT_MSG="${{ github.event.head_commit.message }}"
+            COMMIT_AUTHOR="${{ github.event.head_commit.author.name }}"
+            COMMIT_URL="${{ github.event.head_commit.url }}"
+
+            DESC="New commit pushed to branch $BRANCH"
+
+            FIELDS=$(jq -n \
+              --arg branch "$BRANCH" \
+              --arg actor "$ACTOR" \
+              --arg msg "$COMMIT_MSG" \
+              --arg author "$COMMIT_AUTHOR" \
+              --arg commit "$COMMIT_URL" \
+              '[
+                {name:"Branch", value:$branch, inline:true},
+                {name:"Pusher", value:$actor, inline:true},
+                {name:"Author", value:$author, inline:true},
+                {name:"Message", value:$msg, inline:false},
+                {name:"Commit", value:$commit, inline:false}
+              ]'
+            )
+
+          elif [ "$EVENT" = "watch" ]; then
+            ACTION="${{ github.event.action }}"
+
+            TITLE="Star Event"
+            URL="$REPO_URL"
+
+            if [ "$ACTION" = "started" ]; then
+              DESC="$ACTOR starred $REPO"
+            else
+              DESC="$ACTOR watch event on $REPO"
+            fi
+
+            FIELDS=$(jq -n \
+              --arg actor "$ACTOR" \
+              --arg action "$ACTION" \
+              --arg stars "${{ github.event.repository.stargazers_count }}" \
+              '[
+                {name:"User", value:$actor, inline:true},
+                {name:"Action", value:$action, inline:true},
+                {name:"Total Stars", value:$stars, inline:true}
+              ]'
+            )
+
+          elif [ "$EVENT" = "fork" ]; then
+            TITLE="New Fork"
+            DESC="$ACTOR forked $REPO"
+            URL="$REPO_URL"
+
+          elif [ "$EVENT" = "issues" ]; then
+            TITLE="Issue Activity"
+            URL="${{ github.event.issue.html_url }}"
+            DESC="${{ github.event.issue.title }}"
+
+            FIELDS=$(jq -n \
+              --arg user "${{ github.event.issue.user.login }}" \
+              --arg state "${{ github.event.issue.state }}" \
+              '[
+                {name:"User", value:$user, inline:true},
+                {name:"State", value:$state, inline:true}
+              ]'
+            )
+
+          elif [ "$EVENT" = "pull_request" ]; then
+            TITLE="Pull Request Activity"
+            URL="${{ github.event.pull_request.html_url }}"
+            DESC="${{ github.event.pull_request.title }}"
+
+            FIELDS=$(jq -n \
+              --arg user "${{ github.event.pull_request.user.login }}" \
+              --arg state "${{ github.event.pull_request.state }}" \
+              '[
+                {name:"User", value:$user, inline:true},
+                {name:"State", value:$state, inline:true}
+              ]'
+            )
+          fi
+
+          jq -n \
+            --arg title "$TITLE" \
+            --arg desc "$DESC" \
+            --arg url "$URL" \
+            --argjson fields "$FIELDS" \
+            --arg timestamp "$TIMESTAMP" \
+            '{
+              embeds: [
+                {
+                  title: $title,
+                  description: $desc,
+                  url: $url,
+                  color: 5814783,
+                  fields: $fields,
+                  footer: { text: "GitHub Activity" },
+                  timestamp: $timestamp
+                }
+              ]
+            }' | curl -H "Content-Type: application/json" \
+              -X POST \
+              -d @- \
+              ${{ secrets.DISCORD_WEBHOOK }}
