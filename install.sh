@@ -1,71 +1,78 @@
 #!/bin/sh
 set -e
 
-REPO="KrishnaSSH/GopherTube"
-BIN_NAME="gophertube"
+repo="KrishnaSSH/GopherTube"
+bin_name="gophertube"
 
-DIR="/usr/local/bin"
-OUT="$DIR/$BIN_NAME"
-VERSION_FILE="$DIR/${BIN_NAME}.version"
+dir="/usr/local/bin"
+out="$dir/$bin_name"
+version_file="$dir/${bin_name}.version"
 
-TMP="/tmp/$BIN_NAME"
+tmp="/tmp/$bin_name"
 
-OS=$(uname | tr '[:upper:]' '[:lower:]')
-ARCH=$(uname -m)
+os=$(uname | tr '[:upper:]' '[:lower:]')
+arch=$(uname -m)
 
-case "$ARCH" in
-  x86_64) ARCH="amd64" ;;
-  aarch64|arm64) ARCH="arm64" ;;
-  armv7l) ARCH="arm" ;;
-  i386|i686) ARCH="386" ;;
+case "$arch" in
+  x86_64) arch="amd64" ;;
+  aarch64|arm64) arch="arm64" ;;
+  armv7l) arch="arm" ;;
+  i386|i686) arch="386" ;;
   *)
-    echo "unsupported architecture: $ARCH"
+    echo "unsupported architecture: $arch"
     exit 1
     ;;
 esac
 
-case "$OS" in
-  linux) OS="linux" ;;
-  darwin) OS="darwin" ;;
+case "$os" in
+  linux) os="linux" ;;
+  darwin) os="darwin" ;;
   *)
-    echo "unsupported OS: $OS"
+    echo "unsupported os: $os"
     exit 1
     ;;
 esac
 
-echo "Fetching latest release..."
+echo "fetching latest release..."
 
-API="https://api.github.com/repos/$REPO/releases/latest"
-JSON=$(curl -fsSL "$API")
+api="https://api.github.com/repos/$repo/releases/latest"
+json=$(curl -fsSL "$api")
 
-VERSION=$(echo "$JSON" | grep '"tag_name"' | head -n1 | cut -d '"' -f4)
+version=$(echo "$json" | grep '"tag_name"' | head -n1 | cut -d '"' -f4)
 
-echo "latest: $VERSION"
+echo "latest version: $version"
 
-CURRENT=""
-[ -f "$VERSION_FILE" ] && CURRENT=$(cat "$VERSION_FILE")
+asset="gophertube-${os}-${arch}-${version}"
+base="https://github.com/$repo/releases/download/$version"
 
-if [ "$VERSION" = "$CURRENT" ] && [ -x "$OUT" ]; then
-  echo "already up to date"
-  exec "$OUT"
+echo "downloading: $asset"
+
+curl -L --fail -o "$tmp" "$base/$asset"
+
+chmod +x "$tmp"
+
+echo "installing binary to $dir (requires sudo)..."
+
+sudo mv "$tmp" "$out"
+sudo chmod +x "$out"
+
+echo "$version" | sudo tee "$version_file" >/dev/null
+
+echo "installed -> $out"
+
+man_src="man/gophertube.1"
+man_dest="/usr/share/man/man1/gophertube.1"
+
+echo "installing man page..."
+
+if [ -f "$man_src" ]; then
+  sudo install -Dm644 "$man_src" "$man_dest"
+  sudo gzip -f "$man_dest"
+  sudo mandb >/dev/null 2>&1 || true
+  echo "man page installed -> /usr/share/man/man1/gophertube.1.gz"
+else
+  echo "man page not found, skipping"
 fi
 
-ASSET="gophertube-${OS}-${ARCH}-${VERSION}"
-BASE="https://github.com/$REPO/releases/download/$VERSION"
-
-echo "downloading: $ASSET"
-
-curl -L --fail -o "$TMP" "$BASE/$ASSET"
-
-chmod +x "$TMP"
-
-echo "installing to $DIR (requires sudo)..."
-
-sudo mv "$TMP" "$OUT"
-sudo chmod +x "$OUT"
-
-echo "$VERSION" | sudo tee "$VERSION_FILE" >/dev/null
-
-echo "installed -> $OUT"
-
-exec "$OUT"
+echo "done"
+echo "run: gophertube to get started"
