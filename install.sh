@@ -3,11 +3,12 @@ set -e
 
 REPO="KrishnaSSH/GopherTube"
 BIN_NAME="gophertube"
-DIR="${DIR:-$HOME/.local/bin}"
+
+DIR="/usr/local/bin"
 OUT="$DIR/$BIN_NAME"
 VERSION_FILE="$DIR/${BIN_NAME}.version"
 
-mkdir -p "$DIR"
+TMP="/tmp/$BIN_NAME"
 
 OS=$(uname | tr '[:upper:]' '[:lower:]')
 ARCH=$(uname -m)
@@ -44,25 +45,27 @@ echo "latest: $VERSION"
 CURRENT=""
 [ -f "$VERSION_FILE" ] && CURRENT=$(cat "$VERSION_FILE")
 
-if [ "$VERSION" = "$CURRENT" ] && [ -f "$OUT" ]; then
+if [ "$VERSION" = "$CURRENT" ] && [ -x "$OUT" ]; then
   echo "already up to date"
   exec "$OUT"
 fi
 
-# matches YOUR CI naming format
 ASSET="gophertube-${OS}-${ARCH}-${VERSION}"
 BASE="https://github.com/$REPO/releases/download/$VERSION"
 
-TMP="$OUT.tmp"
-
-echo "downloading $ASSET"
+echo "downloading: $ASSET"
 
 curl -L --fail -o "$TMP" "$BASE/$ASSET"
 
 chmod +x "$TMP"
-mv "$TMP" "$OUT"
 
-echo "$VERSION" > "$VERSION_FILE"
+echo "installing to $DIR (requires sudo)..."
+
+sudo mv "$TMP" "$OUT"
+sudo chmod +x "$OUT"
+
+echo "$VERSION" | sudo tee "$VERSION_FILE" >/dev/null
 
 echo "installed -> $OUT"
+
 exec "$OUT"
