@@ -5,7 +5,6 @@ go 1.24.2
 toolchain go1.24.5
 
 require (
-	github.com/chzyer/readline v1.5.1
 	github.com/urfave/cli-altsrc/v3 v3.0.1
 	github.com/urfave/cli/v3 v3.3.8
 )
