@@ -1,36 +1,36 @@
 {
   description = "GopherTube Nix Flake";
-
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-parts.url = "github:hercules-ci/flake-parts";
     flake-utils.url = "github:numtide/flake-utils";
   };
-
-  outputs = inputs@{ nixpkgs, flake-parts, flake-utils, ... }:
+  outputs = inputs@{ nixpkgs, flake-parts, flake-utils, self, ... }:
     flake-parts.lib.mkFlake { inherit inputs; } {
       systems = flake-utils.lib.defaultSystems;
-
       perSystem = { pkgs, ... }:
         let
-          runtimeDeps = with pkgs; [ mpv chafa yt-dlp ];
+          version = if self ? rev
+            then builtins.substring 0 8 self.rev
+            else self.lastModifiedDate or "unknown";
+          tag = if self ? tags
+            then self.tags
+            else "dev";
+          runtimeDeps = with pkgs; [ mpv yt-dlp ];
           gophertubePkg = pkgs.buildGoModule {
             pname = "gophertube";
-            version = "2.8.0";
+            version = tag;
             src = pkgs.lib.cleanSource ./.;
             vendorHash = "sha256-WfVoCxzMk+h4AP1zgTNRXTpj8Ltu71YrsQ7OoU3Y4tg=";
-
-            buildInputs = runtimeDeps;
-            nativeBuildInputs = [ pkgs.go pkgs.makeWrapper ] ++ runtimeDeps;
-            nativeCheckInputs = [ pkgs.go pkgs.makeWrapper ] ++ runtimeDeps;
-
-            buildPhase = ''
-              go build -o gophertube main.go
-            '';
-
-            installPhase = ''
-              install -Dm755 gophertube $out/bin/gophertube
-              wrapProgram $out/bin/gophertube --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
+            CGO_ENABLED = 0;
+            ldflags = [
+              "-s" "-w"
+              "-X gophertube/internal/app.version=${tag}"
+            ];
+            nativeBuildInputs = [ pkgs.makeWrapper ];
+            postInstall = ''
+              wrapProgram $out/bin/gophertube \
+                --prefix PATH : ${pkgs.lib.makeBinPath runtimeDeps}
               mkdir -p $out/share/man/man1
               cp $src/man/gophertube.1 $out/share/man/man1/
               mkdir -p $out/config
@@ -39,11 +39,9 @@
           };
         in {
           packages.default = gophertubePkg;
-
           devShells.default = pkgs.mkShell {
             buildInputs = [ pkgs.go ] ++ runtimeDeps;
           };
-
           apps.default = flake-utils.lib.mkApp {
             drv = gophertubePkg;
           };
