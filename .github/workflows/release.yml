@@ -1,17 +1,13 @@
 name: release
-
 on:
   push:
     tags:
       - "v*"
-
 permissions:
   contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     strategy:
       matrix:
         include:
@@ -21,7 +17,6 @@ jobs:
             goarch: arm64
           - goos: windows
             goarch: 386
-
           - goos: linux
             goarch: amd64
           - goos: linux
@@ -30,40 +25,30 @@ jobs:
             goarch: arm
           - goos: linux
             goarch: 386
-
           - goos: darwin
             goarch: amd64
           - goos: darwin
             goarch: arm64
-
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version: stable
           cache: true
-
       - name: build binaries
         shell: bash
         run: |
           mkdir -p dist
-
           VERSION="${GITHUB_REF_NAME}"
-
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then
             EXT=".exe"
           fi
-
           OUTPUT="dist/gophertube-${{ matrix.goos }}-${{ matrix.goarch }}-${VERSION}${EXT}"
-
           echo "Building GopherTube with version: $VERSION"
-
           CGO_ENABLED=0 GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
           go build -ldflags "-X gophertube/internal/app.version=${VERSION}" \
           -o "$OUTPUT" main.go
-
       - name: upload build artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -75,19 +60,16 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: final
           merge-multiple: true
-
       - name: Generate SHA256 checksums
         run: |
           cd final
           sha256sum ./* > checksums.txt
-
       - name: create github release and upload assets
         uses: softprops/action-gh-release@v2
         with:
@@ -96,3 +78,36 @@ jobs:
             final/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  aur-publish:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: get version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_ENV
+
+      - name: compute sha256sum
+        run: |
+          URL="https://github.com/KrishnaSSH/GopherTube/archive/refs/tags/v${VERSION}.tar.gz"
+          SHA=$(curl -sL "$URL" | sha256sum | cut -d' ' -f1)
+          echo "SHA_SRC=$SHA" >> $GITHUB_ENV
+
+      - name: update PKGBUILD
+        run: |
+          cd aur/gophertube
+          sed -i "s/pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+          sed -i "s/sha256sums=.*/sha256sums=('${SHA_SRC}')/" PKGBUILD
+          makepkg --printsrcinfo > .SRCINFO
+
+      - name: publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        with:
+          pkgname: gophertube
+          pkgbuild: aur/gophertube/PKGBUILD
+          srcinfo: aur/gophertube/.SRCINFO
+          commit_username: ${{ secrets.AUR_USERNAME }}
+          commit_email: ${{ secrets.AUR_EMAIL }}
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "update to v${{ env.VERSION }}"
