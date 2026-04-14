@@ -4,8 +4,7 @@
 *.dll
 *.so
 *.dylib
-gophertube
-gophertube-*
+/gophertube
 
 # Test binary, built with `go test -c`
 *.test
