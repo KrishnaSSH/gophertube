@@ -21,7 +21,7 @@
             pname = "gophertube";
             version = tag;
             src = pkgs.lib.cleanSource ./.;
-            vendorHash = "sha256-WfVoCxzMk+h4AP1zgTNRXTpj8Ltu71YrsQ7OoU3Y4tg=";
+            vendorHash = "";
             CGO_ENABLED = 0;
             ldflags = [
               "-s" "-w"
