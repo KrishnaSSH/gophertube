@@ -10,3 +10,6 @@ quality = "1080p"
 downloads_path = "/home/$USER/Videos/GopherTube" 
 # Default theme (e.g. Minimal, Gopher, Gruvbox)
 theme = "Minimal"
+# Start mpv in fullscreen for video playback (default: true).
+# Set to false to play in a windowed mpv (e.g. when using a tiling window manager).
+fullscreen = true

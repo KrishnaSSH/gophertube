@@ -18,6 +18,7 @@ const (
 	FlagConfig        = "config"
 	FlagDownloadsPath = "downloads-path"
 	FlagTheme         = "theme"
+	FlagFullscreen    = "fullscreen"
 
 	defaultConfigPath    = "$HOME/.config/gophertube/gophertube.toml"
 	defaultDownloadsPath = "$HOME/Videos/GopherTube"
@@ -75,6 +76,13 @@ func Flags() []cli.Flag {
 			),
 			Value: "Minimal",
 		},
+		&cli.BoolFlag{
+			Name: FlagFullscreen,
+			Sources: cli.NewValueSourceChain(
+				toml.TOML("fullscreen", altsrc.NewStringPtrSourcer(&confDir)),
+			),
+			Value: true,
+		},
 	}
 }
 
@@ -102,6 +110,7 @@ type GopherTubeConfig struct {
 	Quality       string `toml:"quality"`
 	DownloadsPath string `toml:"downloads_path"`
 	Theme         string `toml:"theme"`
+	Fullscreen    bool   `toml:"fullscreen"`
 }
 
 func SaveConfig(cmd *cli.Command) error {
@@ -115,6 +124,7 @@ func SaveConfig(cmd *cli.Command) error {
 		Quality:       cmd.String(FlagQuality),
 		DownloadsPath: cmd.String(FlagDownloadsPath),
 		Theme:         CurrentThemeName(),
+		Fullscreen:    cmd.Bool(FlagFullscreen),
 	}
 
 	f, err := os.Create(confPath)

@@ -218,8 +218,10 @@ func gophertubeYouTubeMode(cmd *cli.Command) bool {
 		quality := cmd.String(FlagQuality)
 		var mpvArgs []string
 
-		// Add the fullscreen flag for video playback
-		mpvArgs = append(mpvArgs, "--fs", "--input-terminal=yes", "--no-terminal", "--msg-level=all=no")
+		if cmd.Bool(FlagFullscreen) {
+			mpvArgs = append(mpvArgs, "--fs")
+		}
+		mpvArgs = append(mpvArgs, "--input-terminal=yes", "--no-terminal", "--msg-level=all=no")
 
 		if quality != "" {
 			f := qualityToFormat(quality)
@@ -242,6 +244,7 @@ func gophertubeYouTubeMode(cmd *cli.Command) bool {
 }
 
 func gophertubeDownloadsMode(cmd *cli.Command) bool {
+	fullscreen := cmd.Bool(FlagFullscreen)
 	dlPath := expandPath(cmd.String(FlagDownloadsPath))
 	for {
 		files, err := os.ReadDir(dlPath)
@@ -269,7 +272,11 @@ func gophertubeDownloadsMode(cmd *cli.Command) bool {
 			return false
 		}
 		filePath := filepath.Join(dlPath, selected)
-		mpvArgs := []string{"--fs", "--input-terminal=yes", "--no-terminal", "--msg-level=all=no", filePath}
+		var mpvArgs []string
+		if fullscreen {
+			mpvArgs = append(mpvArgs, "--fs")
+		}
+		mpvArgs = append(mpvArgs, "--input-terminal=yes", "--no-terminal", "--msg-level=all=no", filePath)
 		exit, back, _ = runPlaybackTea(selected, "", "", "", "Playing: ", mpvArgs)
 		if exit {
 			return true
