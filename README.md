@@ -129,6 +129,7 @@ search_limit = 30
 quality = "1080p"           # default: 1080p (options: 1080p, 720p, 480p, 360p, Audio)
 downloads_path = "/home/$USER/Videos/GopherTube"  # where to save downloads
 theme = "Minimal"                                 # default: Minimal (options: Minimal, Gopher, Gruvbox, etc)
+fullscreen = true                                 # default: true; set to false for windowed mpv (tiling WMs)
 ```
 
 ### Configuration Options
@@ -139,6 +140,7 @@ theme = "Minimal"                                 # default: Minimal (options: M
 | quality          | string | "1080p"                                   | Preferred quality or `Audio` for audio-only. |
 | downloads_path   | string | "$HOME/Videos/GopherTube"                | Directory to save downloads.                 |
 | theme            | string | "Minimal"                                 | Default application theme.                   |
+| fullscreen       | bool   | true                                      | Start mpv in fullscreen for video playback. Set to `false` for tiling WMs. |
 
 ---
 
