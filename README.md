@@ -1,7 +1,7 @@
 ### Project Status
 
 this will be rewritten from scratch due to technical debt
-refer to [v3](https://github.com/KrishnaSSH/gophertube)
+refer to [v3](https://github.com/KrishnaSSH/gophertube/tree/v3)
 
 <div align="left">
   <img src=".assets/logo.png" alt="GopherTube Logo" width="200" />
