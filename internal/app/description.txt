@@ -1,9 +1,0 @@
-Gophertube is a terminal-based YouTube search and video player application.
-Navigate through YouTube content efficiently using keyboard shortcuts and enjoy
-seamless video playback directly from your terminal.
-
-Controls:
-  • Type your search query and press Enter
-  • Use ↑/↓ to navigate results
-  • Press Tab to load more results
-  • Press Esc to go back or exit
