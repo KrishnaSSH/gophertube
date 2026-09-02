@@ -61,11 +61,24 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          cache: true
+
       - name: download all artifacts
         uses: actions/download-artifact@v4
         with:
           path: final
           merge-multiple: true
+      - name: build Go module dependency archive
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          GOMODCACHE="${PWD}/go-mod" go mod download -modcacherw
+          XZ_OPT="-T0 -9" tar -acf "final/gophertube-${VERSION}-deps.tar.xz" go-mod
       - name: Generate SHA256 checksums
         run: |
           cd final
