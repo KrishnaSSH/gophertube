@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -137,8 +138,8 @@ func SearchYouTube(query string, limit int, progress func(current, total int)) (
 	}
 
 	// Single optimized request with best parameters
-	url := "https://www.youtube.com/results?search_query=" + urlQueryEscape(query) + "&sp=EgIQAQ%253D%253D&hl=en&gl=US"
-	resp, err := httpClient.Get(url)
+	urlQuery := "https://www.youtube.com/results?search_query=" + url.QueryEscape(query) + "&sp=EgIQAQ%253D%253D&hl=en&gl=US"
+	resp, err := httpClient.Get(urlQuery)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +165,7 @@ func SearchYouTube(query string, limit int, progress func(current, total int)) (
 
 	// If we don't have enough videos, try one more strategy
 	if len(videos) < limit {
-		altUrl := "https://www.youtube.com/results?search_query=" + urlQueryEscape(query) + "&sp=EgIQAQ%25253D%25253D&hl=en&gl=US"
+		altUrl := "https://www.youtube.com/results?search_query=" + url.QueryEscape(query) + "&sp=EgIQAQ%25253D%25253D&hl=en&gl=US"
 		altResp, err := httpClient.Get(altUrl)
 		if err == nil {
 			defer altResp.Body.Close()
@@ -322,10 +323,6 @@ func CleanupHTTPConnections() {
 	if transport, ok := httpClient.Transport.(*http.Transport); ok {
 		transport.CloseIdleConnections()
 	}
-}
-
-func urlQueryEscape(s string) string {
-	return strings.ReplaceAll(strings.ReplaceAll(s, " ", "+"), "#", "%23")
 }
 
 func parseVideoRenderer(vr interface{}) types.Video {
